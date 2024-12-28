@@ -12,7 +12,7 @@ int validate_username(const char *username);
 int validate_password(const char *password);
 int validate_email(const char *email);
 int contain_space(const char *text);
-void generate_password(int length, char* password);
+char* generate_password(int length);
 void save_user(const char *username, const char *password, const char *email);
 
 int main() {
@@ -81,9 +81,9 @@ int main() {
         }
 
         if (choice == 1) {
-            //endwin();
+            endwin();
             add_new_user("");
-            //initscr();
+            initscr();
             clear();
         } else if (choice == n_choices) {
             break;
@@ -103,7 +103,6 @@ void add_new_user(const char* message) {
     init_pair(2, COLOR_WHITE, COLOR_BLACK); 
     init_pair(3, COLOR_RED, COLOR_BLACK);  
     init_pair(4, COLOR_GREEN, COLOR_BLACK); 
-    init_pair(5, COLOR_BLACK, COLOR_WHITE); 
 
     echo();
     curs_set(1);
@@ -133,29 +132,11 @@ void add_new_user(const char* message) {
     }
 
     attron(COLOR_PAIR(1)); 
-    printw("\nDo you want to generate a random password (Y/N):");
+    printw("\nPassword:");
     attroff(COLOR_PAIR(1)); 
     attron(COLOR_PAIR(2)); 
-    char create[10];
-    getstr(create);
+    getstr(password);
     attroff(COLOR_PAIR(2)); 
-
-    if(create[0] == 'Y'){
-        attron(COLOR_PAIR(1)); 
-        printw("Password:");
-        attroff(COLOR_PAIR(1)); 
-        attron(COLOR_PAIR(2)); 
-        generate_password(10, password);
-        printw("%s\n", password);
-        attroff(COLOR_PAIR(2)); 
-    } else {
-        attron(COLOR_PAIR(1)); 
-        printw("Password:");
-        attroff(COLOR_PAIR(1)); 
-        attron(COLOR_PAIR(2)); 
-        getstr(password);
-        attroff(COLOR_PAIR(2)); 
-    }
 
     if (!validate_password(password)) {
         add_new_user("\nPassword should contain at least 7 chars and lower and upper and number or contains whitespace.");
@@ -245,7 +226,8 @@ int contain_space(const char* text) {
     return 1;
 }
 
-void generate_password(int length, char* password) {
+char* generate_password(int length) {
+    static char password[100]; 
     char charset_upper[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     char charset_lower[] = "abcdefghijklmnopqrstuvwxyz";
     char charset_digits[] = "0123456789";
@@ -269,6 +251,7 @@ void generate_password(int length, char* password) {
     }
 
     password[length] = '\0';
+    return password;
 }
 
 void save_user(const char *username, const char *password, const char *email) {
