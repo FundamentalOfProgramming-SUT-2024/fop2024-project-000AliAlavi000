@@ -4,10 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 
 #define FILENAME "users.txt"
 
 char user_name[50];
+int level = 0; // 1:easy 2:medium 3:hard;
+int color = 0; // 1:red 2:green 3:blue;
+int song = 0;
 
 void empty_username();
 void add_new_user(const char *message);
@@ -22,9 +26,12 @@ int login_user(const char *username, const char *password);
 int guest_login();
 void forgot_password(const char *username);
 char *get_password(const char *username);
+void game_setting();
+void play_mp3();
 
 int main()
 {
+	play_mp3();
 	initscr();
 	clear();
 	noecho();
@@ -36,7 +43,7 @@ int main()
 
 	char *choices[] = {"1. Create New User", "2. Login",
 					   "3. Start Playing", "4. Profile",
-					   "5. Scores Table", "6. Exit"};
+					   "5. Scores Table", "6. Setting", "7. Exit"};
 	int n_choices = sizeof(choices) / sizeof(choices[0]);
 
 	int highlight = 1;
@@ -101,6 +108,12 @@ int main()
 			login("");
 		}
 		else if (choice == 6)
+		{
+			game_setting();
+			play_mp3();
+			// setting
+		}
+		else if (choice == 7)
 		{
 			break; // Exit
 		}
@@ -379,7 +392,7 @@ void login(const char *message)
 	attron(COLOR_PAIR(2));
 	getstr(username);
 	attroff(COLOR_PAIR(2));
-	
+
 	attron(COLOR_PAIR(1));
 	printw("\nForgot password (Y/N)?");
 	attroff(COLOR_PAIR(1));
@@ -533,7 +546,7 @@ char *get_password(const char *username)
 	}
 
 	char line[200];
-	static char password[50]; 
+	static char password[50];
 	while (fgets(line, sizeof(line), file))
 	{
 		char stored_username[50], stored_password[50];
@@ -541,7 +554,7 @@ char *get_password(const char *username)
 		if (strcmp(username, stored_username) == 0)
 		{
 			fclose(file);
-			strcpy(password, stored_password); 
+			strcpy(password, stored_password);
 			return password;
 		}
 	}
@@ -549,3 +562,85 @@ char *get_password(const char *username)
 	fclose(file);
 	return "Username not found...";
 }
+
+void game_setting()
+{
+	initscr();
+	cbreak();
+	noecho();
+	curs_set(0);
+	if (has_colors())
+	{
+		start_color();
+		init_pair(1, COLOR_RED, COLOR_BLACK);
+		init_pair(2, COLOR_GREEN, COLOR_BLACK);
+		init_pair(3, COLOR_BLUE, COLOR_BLACK);
+	}
+	char *difficulty_levels[] = {"Easy", "Medium", "Hard"};
+	char *colors[] = {"Red", "Green", "Blue"};
+	char *songs[] = {"No Song", "Madrese Mooshha", "Ali Kocholoo"};
+	int choice = 0;
+	while (1)
+	{
+		clear();
+		mvprintw(0, 0, "Game Settings");
+		mvprintw(2, 0, "1. Difficulty Level: %s", difficulty_levels[level]);
+		mvprintw(3, 0, "2. Character Color: %s", colors[color]);
+		mvprintw(4, 0, "3. Background Music: %s", songs[song]);
+		mvprintw(6, 0, "4. Save and Exit");
+		mvprintw(8, 0, "Enter number of each item in menu to change.");
+		if (has_colors())
+		{
+			attron(COLOR_PAIR(color + 1));
+			mvprintw(10, 0, "Preview of Character Color");
+			attroff(COLOR_PAIR(color + 1));
+		}
+		refresh();
+		int ch = getch();
+		if (ch == '1')
+		{
+			level = (level + 1) % 3;
+		}
+		else if (ch == '2')
+		{
+			color = (color + 1) % 3;
+		}
+		else if (ch == '3')
+		{
+			song = (song + 1) % 3;
+		}
+		else if (ch == '4')
+		{
+			break;
+		}
+	}
+	clear();
+	refresh();
+	endwin();
+}
+
+void play_mp3()
+{
+	char command[256];
+
+	if (song == 0)
+	{
+		return;
+	}
+
+	snprintf(command, sizeof(command), "pkill mpg123");
+	system(command);
+
+	if (song == 1)
+	{
+		snprintf(command, sizeof(command), "mpg123 1.mp3 > /dev/null 2>&1 &");
+	}
+	else if (song == 2)
+	{
+		snprintf(command, sizeof(command), "mpg123 2.mp3 > /dev/null 2>&1 &");
+	}
+
+	system(command);
+}
+
+
