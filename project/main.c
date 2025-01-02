@@ -7,11 +7,22 @@
 #include <pthread.h>
 
 #define FILENAME "users.txt"
+#define ROWS_PER_PAGE 20
 
+// format: username password email scores golds finish_games time_left
 char user_name[50];
 int level = 0; // 1:easy 2:medium 3:hard;
 int color = 0; // 1:red 2:green 3:blue;
 int song = 0;
+
+struct User
+{
+	char username[50];
+	int scores;
+	int golds;
+	int finish_games;
+	int time_left;
+};
 
 void empty_username();
 void add_new_user(const char *message);
@@ -28,6 +39,8 @@ void forgot_password(const char *username);
 char *get_password(const char *username);
 void game_setting();
 void play_mp3();
+void kill_mp3();
+void scores_table();
 
 int main()
 {
@@ -107,6 +120,11 @@ int main()
 			// Login
 			login("");
 		}
+		else if (choice == 5)
+		{
+			// scores
+			scores_table();
+		}
 		else if (choice == 6)
 		{
 			game_setting();
@@ -121,6 +139,7 @@ int main()
 	}
 
 	endwin();
+	kill_mp3();
 	return 0;
 }
 
@@ -137,6 +156,7 @@ void add_new_user(const char *message)
 
 	echo();
 	curs_set(1);
+	keypad(stdscr, FALSE);
 	clear();
 
 	if (strlen(message) > 2)
@@ -220,6 +240,7 @@ void add_new_user(const char *message)
 	save_user(username, password, email);
 
 	noecho();
+	keypad(stdscr, TRUE);
 	curs_set(0);
 }
 
@@ -340,7 +361,12 @@ void save_user(const char *username, const char *password, const char *email)
 		return;
 	}
 
-	fprintf(file, "%s %s %s\n", username, password, email);
+	int scores = 0;
+	int golds = 0;
+	int finish_games = 0;
+	int time_left = 0;
+
+	fprintf(file, "%s %s %s %d %d %d %d\n", username, password, email, scores, golds, finish_games, time_left);
 	fclose(file);
 }
 
@@ -355,6 +381,7 @@ void login(const char *message)
 	init_pair(4, COLOR_GREEN, COLOR_BLACK);
 	init_pair(5, COLOR_BLACK, COLOR_WHITE);
 
+	keypad(stdscr, FALSE);
 	echo();
 	curs_set(1);
 	clear();
@@ -439,7 +466,7 @@ void login(const char *message)
 	getch();
 	clear();
 	refresh();
-
+	keypad(stdscr, TRUE);
 	noecho();
 	curs_set(0);
 }
@@ -623,14 +650,11 @@ void play_mp3()
 {
 	char command[256];
 
+	kill_mp3();
 	if (song == 0)
 	{
 		return;
 	}
-
-	snprintf(command, sizeof(command), "pkill mpg123");
-	system(command);
-
 	if (song == 1)
 	{
 		snprintf(command, sizeof(command), "mpg123 1.mp3 > /dev/null 2>&1 &");
@@ -643,4 +667,173 @@ void play_mp3()
 	system(command);
 }
 
+void kill_mp3()
+{
+	char command[256];
+	snprintf(command, sizeof(command), "pkill mpg123");
+	system(command);
+}
 
+void scores_table()
+{
+	initscr();
+	clear();
+	noecho();
+	cbreak();
+	curs_set(0);
+	keypad(stdscr, TRUE);
+
+	// Initialize color pairs
+	start_color();
+	init_pair(1, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(2, COLOR_WHITE, COLOR_BLACK);
+	init_pair(3, COLOR_RED, COLOR_BLACK);
+	init_pair(4, COLOR_GREEN, COLOR_BLACK);
+	init_pair(5, COLOR_BLACK, COLOR_WHITE);
+	init_pair(6, COLOR_CYAN, COLOR_BLACK);
+
+	// Open file
+	FILE *file = fopen(FILENAME, "r");
+	if (!file)
+	{
+		mvprintw(LINES / 2, (COLS - 30) / 2, "Error: Could not open file.");
+		getch();
+		endwin();
+		return;
+	}
+
+	// Load user data
+	struct User users[100];
+	int count = 0;
+	char line[200];
+	while (fgets(line, sizeof(line), file) && count < 100)
+	{
+		sscanf(line, "%49s %*s %*s %d %d %d %d",
+			   users[count].username,
+			   &users[count].scores,
+			   &users[count].golds,
+			   &users[count].finish_games,
+			   &users[count].time_left);
+		count++;
+	}
+	fclose(file);
+
+	// Sort users by scores
+	for (int i = 0; i < count - 1; i++)
+	{
+		for (int j = i + 1; j < count; j++)
+		{
+			if (users[j].scores > users[i].scores)
+			{
+				struct User temp = users[i];
+				users[i] = users[j];
+				users[j] = temp;
+			}
+		}
+	}
+
+	int current_page = 0;
+	int total_pages = (count + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE;
+	int scroll_offset = 0;
+
+	while (1)
+	{
+		clear();
+		int start_row = 2;
+		int start_col = (COLS - 60) / 2;
+
+		mvprintw(start_row - 2, start_col, "Top Players - Page %d/%d", current_page + 1, total_pages);
+		mvprintw(start_row, start_col, "Rank  Username          Scores  Golds  Games  Time Left");
+		mvprintw(start_row + 1, start_col, "-------------------------------------------------------");
+
+		// Define the range of users visible in the current page
+		int start_idx = current_page * ROWS_PER_PAGE;
+		int end_idx = (start_idx + ROWS_PER_PAGE < count) ? start_idx + ROWS_PER_PAGE : count;
+
+		// Scrollable range within the current page
+		int visible_lines = LINES - (start_row + 5); // Remaining lines for display
+		int visible_start_idx = start_idx + scroll_offset;
+		int visible_end_idx = (visible_start_idx + visible_lines < end_idx) ? visible_start_idx + visible_lines : end_idx;
+
+		for (int i = visible_start_idx; i < visible_end_idx; i++)
+		{
+			char rank_display[12];
+			if (i == 0)
+				strcpy(rank_display, "🥇");
+			else if (i == 1)
+				strcpy(rank_display, "🥈");
+			else if (i == 2)
+				strcpy(rank_display, "🥉");
+			else
+				sprintf(rank_display, "%d", i + 1);
+
+			if (i < 3)
+				attron(A_BOLD);
+			if (i == 0)
+				attron(COLOR_PAIR(4));
+			else if (i == 1)
+				attron(COLOR_PAIR(1));
+			else if (i == 2)
+				attron(COLOR_PAIR(6));
+
+			mvprintw(start_row + 2 + (i - visible_start_idx), start_col,
+					 "%-5s %-16.16s %-7d %-6d %-6d %-9d",
+					 rank_display,
+					 users[i].username,
+					 users[i].scores,
+					 users[i].golds,
+					 users[i].finish_games,
+					 users[i].time_left);
+
+			if (i < 3)
+				attroff(A_BOLD);
+			if (i == 0)
+				attroff(COLOR_PAIR(4));
+			else if (i == 1)
+				attroff(COLOR_PAIR(1));
+			else if (i == 2)
+				attroff(COLOR_PAIR(6));
+		}
+
+		mvprintw(LINES - 2, (COLS - 40) / 2, "Up/Down: Scroll, Left/Right: Pages, Q: Quit");
+		refresh();
+
+		int ch = getch();
+		if (ch == 'q' || ch == 'Q')
+		{
+			break;
+		}
+		else if (ch == KEY_RIGHT)
+		{
+			if (current_page < total_pages - 1)
+			{
+				current_page++;
+				scroll_offset = 0; // Reset scroll for new page
+			}
+		}
+		else if (ch == KEY_LEFT)
+		{
+			if (current_page > 0)
+			{
+				current_page--;
+				scroll_offset = 0; // Reset scroll for new page
+			}
+		}
+		else if (ch == KEY_DOWN)
+		{
+			if ((scroll_offset + visible_lines) < (end_idx - start_idx))
+			{
+				scroll_offset++;
+			}
+		}
+		else if (ch == KEY_UP)
+		{
+			if (scroll_offset > 0)
+			{
+				scroll_offset--;
+			}
+		}
+	}
+
+	endwin();
+}
