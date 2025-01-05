@@ -3,17 +3,41 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <time.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #define FILENAME "users.txt"
 #define ROWS_PER_PAGE 20
+#define WIDTH 20
+#define HEIGHT 40
+#define FLOORS 4
+#define NUM_SUBTABLES 6
+
+#define WALL '|'
+#define FLOOR '.'
+#define DOOR '+'
+#define CORRIDOR '#'
+#define PILLAR 'O'
+#define WINDOWW '='
+#define STAIR '<'
+#define PLAYER '1'
 
 // format: username password email scores golds finish_games time_left
 char user_name[50];
 int level = 0; // 1:easy 2:medium 3:hard;
 int color = 0; // 1:red 2:green 3:blue;
-int song = 0;
+int song = 0;  // 0:none 1:moosh 2: ali
+char map[FLOORS][WIDTH][HEIGHT];
+char last_pos;
+int flooor = 0;
+
+typedef struct
+{
+	int x, y;		   // مختصات شروع زیرجدول
+	int width, height; // ابعاد زیرجدول
+} Subtable;
 
 struct User
 {
@@ -41,6 +65,11 @@ void game_setting();
 void play_mp3();
 void kill_mp3();
 void scores_table();
+void generate_map();
+void print_map(char message[], int gold);
+void move_player(int *px, int *py, int direction);
+void start_playing();
+int check_collision(Subtable *subtables, int new_x, int new_y, int new_width, int new_height);
 
 int main()
 {
@@ -119,6 +148,11 @@ int main()
 		{
 			// Login
 			login("");
+		}
+		else if (choice == 3)
+		{
+			// Start Playing
+			start_playing();
 		}
 		else if (choice == 5)
 		{
@@ -835,5 +869,248 @@ void scores_table()
 		}
 	}
 
+	clear();
+	refresh();
+
+	noecho();
+	keypad(stdscr, TRUE);
+	curs_set(0);
+	endwin();
+}
+
+void generate_map()
+{
+	strcpy(map[0][0], "__________     __________     __________");
+	strcpy(map[0][1], "|........|     |........|     |........|");
+	strcpy(map[0][2], "|........+#####+........+#####+........|");
+	strcpy(map[0][3], "|........|     |........|     |........|");
+	strcpy(map[0][4], "|____+___|     |_____+__|     |______+_|");
+	strcpy(map[0][5], "     #               #         ## ####  ");
+	strcpy(map[0][6], "     #               ##########  #   #  ");
+	strcpy(map[0][7], "_____+____              #     _______+__");
+	strcpy(map[0][8], "|........|             #      |........|");
+	strcpy(map[0][9], "|........+##########   #######+........|");
+	strcpy(map[0][10], "|........|          # #       |..<.....|");
+	strcpy(map[0][11], "|____+___|           #        |______+_|");
+	strcpy(map[0][12], "     #               #               #  ");
+	strcpy(map[0][13], "     ##########      #               #  ");
+	strcpy(map[0][14], "_____+____     #      #       _______+__");
+	strcpy(map[0][15], "|........|      #      #      |........|");
+	strcpy(map[0][16], "|........+####################+....O...|");
+	strcpy(map[0][17], "|........|          # #       |........|");
+	strcpy(map[0][18], "|________|           #        |________|");
+
+	strcpy(map[1][0], "__________     __________     __________");
+	strcpy(map[1][1], "|........|     |........|     |........|");
+	strcpy(map[1][2], "|........+#####+........+#####+........|");
+	strcpy(map[1][3], "|........|     |........|     |........|");
+	strcpy(map[1][4], "|____+___|     |_____+__|     |______+_|");
+	strcpy(map[1][5], "     #               #         ## ####  ");
+	strcpy(map[1][6], "     #               ##########  #   #  ");
+	strcpy(map[1][7], "_____+____              #     _______+__");
+	strcpy(map[1][8], "|........|             #      |........|");
+	strcpy(map[1][9], "|........+##########   #######+........|");
+	strcpy(map[1][10], "|........|          # #       |..<.....|");
+	strcpy(map[1][11], "|____+___|           #        |______+_|");
+	strcpy(map[1][12], "     #               #               #  ");
+	strcpy(map[1][13], "     ##########      #               #  ");
+	strcpy(map[1][14], "_____+____     #      #       _______+__");
+	strcpy(map[1][15], "|........|      #      #      |........|");
+	strcpy(map[1][16], "|........+####################+....O...|");
+	strcpy(map[1][17], "|........|          # #       |........|");
+	strcpy(map[1][18], "|________|           #        |________|");
+
+	strcpy(map[2][0], "__________     __________     __________");
+	strcpy(map[2][1], "|........|     |........|     |........|");
+	strcpy(map[2][2], "|........+#####+........+#####+........|");
+	strcpy(map[2][3], "|........|     |........|     |........|");
+	strcpy(map[2][4], "|____+___|     |_____+__|     |______+_|");
+	strcpy(map[2][5], "     #               #         ## ####  ");
+	strcpy(map[2][6], "     #               ##########  #   #  ");
+	strcpy(map[2][7], "_____+____              #     _______+__");
+	strcpy(map[2][8], "|........|             #      |........|");
+	strcpy(map[2][9], "|........+##########   #######+........|");
+	strcpy(map[2][10], "|........|          # #       |..<.....|");
+	strcpy(map[2][11], "|____+___|           #        |______+_|");
+	strcpy(map[2][12], "     #               #               #  ");
+	strcpy(map[2][13], "     ##########      #               #  ");
+	strcpy(map[2][14], "_____+____     #      #       _______+__");
+	strcpy(map[2][15], "|........|      #      #      |........|");
+	strcpy(map[2][16], "|........+####################+....O...|");
+	strcpy(map[2][17], "|........|          # #       |........|");
+	strcpy(map[2][18], "|________|           #        |________|");
+
+	strcpy(map[3][0], "__________     __________     __________");
+	strcpy(map[3][1], "|........|     |........|     |........|");
+	strcpy(map[3][2], "|........+#####+........+#####+........|");
+	strcpy(map[3][3], "|........|     |........|     |........|");
+	strcpy(map[3][4], "|____+___|     |_____+__|     |______+_|");
+	strcpy(map[3][5], "     #               #         ## ####  ");
+	strcpy(map[3][6], "     #               ##########  #   #  ");
+	strcpy(map[3][7], "_____+____              #     _______+__");
+	strcpy(map[3][8], "|........|             #      |........|");
+	strcpy(map[3][9], "|........+##########   #######+........|");
+	strcpy(map[3][10], "|........|          # #       |..<.....|");
+	strcpy(map[3][11], "|____+___|           #        |______+_|");
+	strcpy(map[3][12], "     #               #               #  ");
+	strcpy(map[3][13], "     ##########      #               #  ");
+	strcpy(map[3][14], "_____+____     #      #       _______+__");
+	strcpy(map[3][15], "|........|      #      #      |........|");
+	strcpy(map[3][16], "|........+####################+....O...|");
+	strcpy(map[3][17], "|........|          # #       |........|");
+	strcpy(map[3][18], "|________|           #        |________|");
+}
+
+void print_map(char message[], int gold)
+{
+	printw("%s", message);
+
+	int start_x = (LINES - WIDTH) / 2;
+	int start_y = (COLS - HEIGHT) / 2;
+	for (int i = 0; i < WIDTH; i++)
+	{
+		for (int j = 0; j < HEIGHT; j++)
+		{
+			mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
+		}
+	}
+
+	move(LINES - 1, 0); // انتهای صفحه (آخرین خط)
+	printw("Floor: %d\tGold: %d", flooor + 1, gold);
+}
+
+void move_player(int *px, int *py, int direction)
+{
+	int new_x = *px;
+	int new_y = *py;
+	int press_f = FALSE;
+	int counter = 0;
+
+	if (direction == 'f')
+	{
+		press_f = TRUE;
+		while ((direction = getch()))
+		{
+			if (direction == 'f')
+			{
+				press_f = FALSE;
+				break;
+			}
+			if (direction >= '1' && direction <= '9')
+			{
+				break;
+			}
+		}
+	}
+
+	if (last_pos == STAIR)
+	{
+		if (direction == KEY_RIGHT && flooor != 0)
+		{
+			map[flooor][*py][*px] = last_pos;
+			flooor--;
+			map[flooor][*py][*px] = PLAYER;
+			return;
+		}
+		else if (direction == KEY_LEFT && flooor != FLOORS - 1)
+		{
+			map[flooor][*py][*px] = last_pos;
+			flooor++;
+			map[flooor][*py][*px] = PLAYER;
+			return;
+		}
+	}
+
+	do
+	{
+		switch (direction)
+		{
+		case '7':
+			new_y--;
+			new_x--;
+			break;
+		case '8':
+			new_y--;
+			break;
+		case '9':
+			new_y--;
+			new_x++;
+			break;
+		case '4':
+			new_x--;
+			break;
+		case '6':
+			new_x++;
+			break;
+		case '1':
+			new_y++;
+			new_x--;
+			break;
+		case '2':
+			new_y++;
+			break;
+		case '3':
+			new_y++;
+			new_x++;
+			break;
+		default:
+			return;
+		}
+
+		char next_cell = map[flooor][new_y][new_x];
+		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR)
+		{
+			map[flooor][*py][*px] = last_pos;
+			*px = new_x;
+			*py = new_y;
+			last_pos = map[flooor][*py][*px];
+			map[flooor][*py][*px] = PLAYER;
+		}
+		else if (next_cell == WALL || next_cell == PILLAR || next_cell == WINDOWW)
+		{
+			return;
+		}
+		else
+		{
+			return;
+		}
+	} while (press_f);
+
+	clear();
+}
+
+void start_playing()
+{
+	clear();
+	initscr();
+	noecho();
+	cbreak();
+	keypad(stdscr, TRUE);
+	nodelay(stdscr, TRUE);
+	flooor = 0;
+	generate_map();
+
+	int gold = 0;  // طلا
+	int armor = 0; // زره
+	int expp = 0;  // تجربه
+	int hp = 0;	   // جان
+
+	int px = 8, py = 8; // موقعیت اولیه بازیکن
+	map[0][py][px] = PLAYER;
+
+	print_map("Hello...", gold);
+
+	last_pos = FLOOR;
+	int ch;
+	while ((ch = getch()) != 'q')
+	{
+		move_player(&px, &py, ch);
+		print_map("", gold);
+	}
+
+	keypad(stdscr, TRUE);
+	nodelay(stdscr, FALSE);
+	clear();
+	refresh();
 	endwin();
 }
