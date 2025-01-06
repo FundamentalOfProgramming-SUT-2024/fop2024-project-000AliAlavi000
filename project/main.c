@@ -992,7 +992,7 @@ void draw_corridor(int floor, int x1, int y1, int x2, int y2)
 				x1++;
 			else if (x1 > x2)
 				x1--;
-				
+
 			if (y1 < y2)
 				y1++;
 			else if (y1 > y2)
@@ -1063,6 +1063,29 @@ void connect_rooms(int floor)
 			map[floor][door2_x][door2_y] = '+';
 
 			draw_corridor(floor, door1_x, door1_y + 1, door2_x, door2_y - 1);
+		}
+	}
+	
+	for (int i = 0; i < ROOMS_PER_WIDTH - 1; i++)
+	{
+		for (int j = 0; j < ROOMS_PER_HEIGHT; j++)
+		{
+			Room r1 = rooms[floor * ROOMS_PER_FLOOR + i + j * ROOMS_PER_WIDTH];
+			Room r2 = rooms[floor * ROOMS_PER_FLOOR + (i + 1) + j * ROOMS_PER_WIDTH];
+
+			// انتخاب مختصات در در دیوار پایین اتاق اول
+			int door1_y = rand() % (r1.height - 2) + r1.y + 1;
+			int door1_x = r1.x + r1.width - 1;
+
+			// انتخاب مختصات در در دیوار بالای اتاق دوم
+			int door2_y = rand() % (r2.height - 2) + r2.y + 1;
+			int door2_x = r2.x;
+
+			// قرار دادن درها
+			map[floor][door1_x][door1_y] = '+';
+			map[floor][door2_x][door2_y] = '+';
+
+			draw_corridor(floor, door1_x + 1, door1_y, door2_x - 1, door2_y);
 		}
 	}
 }
