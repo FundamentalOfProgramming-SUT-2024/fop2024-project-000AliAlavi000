@@ -70,9 +70,13 @@ void play_mp3();
 void kill_mp3();
 void scores_table();
 void generate_map();
+void draw_corridor(int floor, int x1, int y1, int x2, int y2);
+void generate_unique_random_numbers(int a, int b, int result[]); // generate a numbers from 0 to b
+void connect_rooms(int floor);
 void print_map(char message[], int gold);
 void move_player(int *px, int *py, int direction);
 void start_playing();
+int contains(int num, int nums[], int size);
 
 int main()
 {
@@ -912,7 +916,6 @@ void generate_map()
 					new_room.x = (rand() % (w - new_room.width)) + (w * (i % ROOMS_PER_WIDTH) + 2);
 					new_room.y = (rand() % (h - new_room.height)) + (h * (j % ROOMS_PER_HEIGHT) + 2);
 				} while (new_room.x + new_room.width >= WIDTH - 1 || new_room.y + new_room.height >= HEIGHT - 1);
-				
 
 				rooms[floor * ROOMS_PER_FLOOR + i + (j * ROOMS_PER_WIDTH)] = new_room;
 
@@ -928,7 +931,8 @@ void generate_map()
 						{
 							map[floor][k][t] = '_';
 						}
-						else{
+						else
+						{
 							map[floor][k][t] = '.';
 						}
 						map[floor][new_room.x][new_room.y] = '_';
@@ -936,6 +940,129 @@ void generate_map()
 					}
 				}
 			}
+		}
+		connect_rooms(floor);
+	}
+}
+
+int contains(int num, int nums[], int size)
+{
+	for (int i = 0; i < size; i++)
+	{
+		if (nums[i] == num)
+		{
+			return 1; // عدد پیدا شد
+		}
+	}
+	return 0; // عدد پیدا نشد
+}
+
+void draw_corridor(int floor, int x1, int y1, int x2, int y2)
+{
+	int dx = abs(x1 - x2); // تفاوت در x
+	int dy = abs(y1 - y2); // تفاوت در y
+
+	srand(time(NULL)); // مقداردهی اولیه برای اعداد تصادفی
+
+	map[floor][x1][y1] = '#'; // شروع مسیر
+	map[floor][x2][y2] = '#'; // پایان مسیر
+
+	// انتخاب تصادفی جهت‌های افقی و عمودی
+	int total_steps = dx + dy;
+	int horizontal_steps = dx;
+	int vertical_steps = dy;
+
+	// شبیه‌سازی حرکت ترکیبی
+	while (horizontal_steps > 0 || vertical_steps > 0)
+	{
+		int r = rand() % (dx + dy + 1);
+		if (r < dx && horizontal_steps > 0) // انتخاب حرکت افقی
+		{
+			if (x1 < x2)
+				x1++;
+			else if (x1 > x2)
+				x1--;
+
+			map[floor][x1][y1] = '#'; // رسم افقی
+			horizontal_steps--;
+		}
+		else if (r == dx && horizontal_steps > 0 && vertical_steps > 0) // انتخاب حرکت افقی
+		{
+			if (x1 < x2)
+				x1++;
+			else if (x1 > x2)
+				x1--;
+				
+			if (y1 < y2)
+				y1++;
+			else if (y1 > y2)
+				y1--;
+
+			map[floor][x1][y1] = '#'; // رسم افقی
+			horizontal_steps--;
+			vertical_steps--;
+		}
+		else if (vertical_steps > 0) // انتخاب حرکت عمودی
+		{
+			if (y1 < y2)
+				y1++;
+			else if (y1 > y2)
+				y1--;
+
+			map[floor][x1][y1] = '#'; // رسم عمودی
+			vertical_steps--;
+		}
+	}
+}
+
+void generate_unique_random_numbers(int a, int b, int result[])
+{
+	int count = 0;
+	int used[b + 1];
+
+	// مقداردهی اولیه آرایه used به 0
+	for (int i = 0; i <= b; i++)
+	{
+		used[i] = 0;
+	}
+
+	srand(time(NULL)); // مقداردهی اولیه تصادفی
+
+	while (count < a)
+	{
+		int random_number = rand() % (b + 1);
+
+		if (!used[random_number])
+		{
+			result[count] = random_number;
+			used[random_number] = 1;
+			count++;
+		}
+	}
+}
+
+void connect_rooms(int floor)
+{
+	for (int i = 0; i < ROOMS_PER_HEIGHT - 1; i++)
+	{
+		for (int j = 0; j < ROOMS_PER_WIDTH; j++)
+		{
+			Room r1 = rooms[floor * ROOMS_PER_FLOOR + i * ROOMS_PER_WIDTH + j];
+			Room r2 = rooms[floor * ROOMS_PER_FLOOR + (i + 1) * ROOMS_PER_WIDTH + j];
+
+			// انتخاب مختصات در در دیوار پایین اتاق اول
+			int door1_x = rand() % (r1.width - 2) + r1.x + 1;
+			int door1_y = r1.y + r1.height - 1;
+
+			// انتخاب مختصات در در دیوار بالای اتاق دوم
+			int door2_x = rand() % (r2.width - 2) + r2.x + 1;
+			int door2_y = r2.y;
+
+			// قرار دادن درها
+			map[floor][door1_x][door1_y] = '+';
+			map[floor][door2_x][door2_y] = '+';
+
+			draw_corridor(floor, door1_x, door1_y + 1, door2_x, door2_y - 1);
 		}
 	}
 }
@@ -954,7 +1081,7 @@ void print_map(char message[], int gold)
 		}
 	}
 
-	move(LINES - 1, 0); // انتهای صفحه (آخرین خط)
+	move(LINES - 1, 0);
 	printw("Floor: %d\tGold: %d", flooor + 1, gold);
 }
 
