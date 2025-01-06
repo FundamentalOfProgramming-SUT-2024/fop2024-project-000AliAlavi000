@@ -914,14 +914,24 @@ void generate_map()
 			{
 				Room new_room;
 				new_room.flooor = floor;
-				do
+				if (i == 0 && j == 0 && floor)
 				{
-					new_room.height = rand() % 4 + 7;
-					new_room.width = rand() % 2 + 6;
-					int w = (WIDTH / ROOMS_PER_WIDTH), h = (HEIGHT / ROOMS_PER_HEIGHT);
-					new_room.x = (rand() % (w - new_room.width)) + (w * (i % ROOMS_PER_WIDTH) + 2);
-					new_room.y = (rand() % (h - new_room.height)) + (h * (j % ROOMS_PER_HEIGHT) + 2);
-				} while (new_room.x + new_room.width >= WIDTH - 1 || new_room.y + new_room.height >= HEIGHT - 1);
+					new_room.x = rooms[0].x;
+					new_room.y = rooms[0].y;
+					new_room.width = rooms[0].width;
+					new_room.height = rooms[0].height;
+				}
+				else
+				{
+					do
+					{
+						new_room.height = rand() % 4 + 7;
+						new_room.width = rand() % 2 + 6;
+						int w = (WIDTH / ROOMS_PER_WIDTH), h = (HEIGHT / ROOMS_PER_HEIGHT);
+						new_room.x = (rand() % (w - new_room.width)) + (w * (i % ROOMS_PER_WIDTH) + 2);
+						new_room.y = (rand() % (h - new_room.height)) + (h * (j % ROOMS_PER_HEIGHT) + 2);
+					} while (new_room.x + new_room.width >= WIDTH - 1 || new_room.y + new_room.height >= HEIGHT - 1);
+				}
 
 				rooms[floor * ROOMS_PER_FLOOR + i + (j * ROOMS_PER_WIDTH)] = new_room;
 
@@ -948,6 +958,11 @@ void generate_map()
 			}
 		}
 		connect_rooms(floor);
+	}
+	Cell stair = get_empty_cell(rooms[0]);
+	for (int i = 0; i < FLOORS; i++)
+	{
+		map[i][stair.y][stair.x] = STAIR;
 	}
 }
 
@@ -1071,7 +1086,7 @@ void connect_rooms(int floor)
 			draw_corridor(floor, door1_x, door1_y + 1, door2_x, door2_y - 1);
 		}
 	}
-	
+
 	for (int i = 0; i < ROOMS_PER_WIDTH - 1; i++)
 	{
 		for (int j = 0; j < ROOMS_PER_HEIGHT; j++)
@@ -1230,10 +1245,10 @@ void start_playing()
 	int expp = 0;  // تجربه
 	int hp = 0;	   // جان
 
-	Cell c =  get_empty_cell(rooms[0]);
+	Cell c = get_empty_cell(rooms[0]);
 	int px = c.x, py = c.y; // موقعیت اولیه بازیکن
 	map[0][py][px] = PLAYER;
-	
+
 	print_map("Hello...", gold);
 
 	last_pos = FLOOR;
@@ -1256,20 +1271,24 @@ Cell get_empty_cell(Room room)
 	Cell empty_cells[room.width * room.height];
 	int empty_cell_count = 0;
 
-	for (int i = room.x + 1; i < room.x + room.width - 1; i++) {
-		for (int j = room.y + 1; j < room.y + room.height - 1; j++) {
-			if (map[room.flooor][i][j] == '.') {
-				empty_cells[empty_cell_count].x = j; 
-				empty_cells[empty_cell_count].y = i; 
+	for (int i = room.x + 1; i < room.x + room.width - 1; i++)
+	{
+		for (int j = room.y + 1; j < room.y + room.height - 1; j++)
+		{
+			if (map[room.flooor][i][j] == '.')
+			{
+				empty_cells[empty_cell_count].x = j;
+				empty_cells[empty_cell_count].y = i;
 				empty_cell_count++;
 			}
 		}
 	}
-	
+
 	Cell c;
-	
-	if (empty_cell_count > 0) {
-		int rand_index = rand() % empty_cell_count;	
+
+	if (empty_cell_count > 0)
+	{
+		int rand_index = rand() % empty_cell_count;
 		c.x = empty_cells[rand_index].x;
 		c.y = empty_cells[rand_index].y;
 		c.flooor = room.flooor;
