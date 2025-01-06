@@ -25,6 +25,7 @@
 #define WINDOWW '='
 #define STAIR '<'
 #define PLAYER '1'
+#define TRAP '^'
 
 // format: username password email scores golds finish_games time_left
 char user_name[50];
@@ -38,12 +39,19 @@ typedef struct
 {
 	int flooor, x, y;  // مختصات شروع زیرجدول
 	int width, height; // ابعاد زیرجدول
+	int visited; 	   // 1:visited 0:
 } Room;
 
 typedef struct
 {
 	int flooor, x, y;
 } Cell;
+
+typedef struct
+{
+	Room r1, r2;
+	Cell cels[];
+} Stair;
 
 struct User
 {
@@ -78,7 +86,7 @@ void generate_map();
 void draw_corridor(int floor, int x1, int y1, int x2, int y2);
 void generate_unique_random_numbers(int a, int b, int result[]); // generate a numbers from 0 to b
 void connect_rooms(int floor);
-void print_map(char message[], int gold);
+void print_map(char message[], int gold, int hp);
 void move_player(int *px, int *py, int direction);
 void start_playing();
 int contains(int num, int nums[], int size);
@@ -955,6 +963,22 @@ void generate_map()
 						map[floor][new_room.x][new_room.y + new_room.height - 1] = '_';
 					}
 				}
+
+				int pillars = rand() % 4;
+				int traps = rand() % 8;
+				if (!traps)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = TRAP;
+				}
+				if (pillars < 3)
+				{
+					for (int i = 0; i < pillars; i++)
+					{
+						Cell p = get_empty_cell(new_room);
+						map[floor][p.y][p.x] = PILLAR;
+					}
+				}
 			}
 		}
 		connect_rooms(floor);
@@ -1111,7 +1135,7 @@ void connect_rooms(int floor)
 	}
 }
 
-void print_map(char message[], int gold)
+void print_map(char message[], int gold, int hp)
 {
 	printw("%s", message);
 
@@ -1126,7 +1150,7 @@ void print_map(char message[], int gold)
 	}
 
 	move(LINES - 1, 0);
-	printw("Floor: %d\tGold: %d", flooor + 1, gold);
+	printw("Floor: %d\tHP: %d\tGold: %d", flooor + 1, hp, gold);
 }
 
 void move_player(int *px, int *py, int direction)
@@ -1243,20 +1267,20 @@ void start_playing()
 	int gold = 0;  // طلا
 	int armor = 0; // زره
 	int expp = 0;  // تجربه
-	int hp = 0;	   // جان
+	int hp = 100;  // جان
 
 	Cell c = get_empty_cell(rooms[0]);
 	int px = c.x, py = c.y; // موقعیت اولیه بازیکن
 	map[0][py][px] = PLAYER;
 
-	print_map("Hello...", gold);
+	print_map("Hello...", gold, hp);
 
 	last_pos = FLOOR;
 	int ch;
 	while ((ch = getch()) != 'q')
 	{
 		move_player(&px, &py, ch);
-		print_map("", gold);
+		print_map("", gold, hp);
 	}
 
 	keypad(stdscr, TRUE);
