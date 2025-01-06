@@ -40,6 +40,11 @@ typedef struct
 	int width, height; // ابعاد زیرجدول
 } Room;
 
+typedef struct
+{
+	int flooor, x, y;
+} Cell;
+
 struct User
 {
 	char username[50];
@@ -77,6 +82,7 @@ void print_map(char message[], int gold);
 void move_player(int *px, int *py, int direction);
 void start_playing();
 int contains(int num, int nums[], int size);
+Cell get_empty_cell(Room room);
 
 int main()
 {
@@ -1224,9 +1230,10 @@ void start_playing()
 	int expp = 0;  // تجربه
 	int hp = 0;	   // جان
 
-	int px = 8, py = 8; // موقعیت اولیه بازیکن
+	Cell c =  get_empty_cell(rooms[0]);
+	int px = c.x, py = c.y; // موقعیت اولیه بازیکن
 	map[0][py][px] = PLAYER;
-
+	
 	print_map("Hello...", gold);
 
 	last_pos = FLOOR;
@@ -1242,4 +1249,30 @@ void start_playing()
 	clear();
 	refresh();
 	endwin();
+}
+
+Cell get_empty_cell(Room room)
+{
+	Cell empty_cells[room.width * room.height];
+	int empty_cell_count = 0;
+
+	for (int i = room.x + 1; i < room.x + room.width - 1; i++) {
+		for (int j = room.y + 1; j < room.y + room.height - 1; j++) {
+			if (map[room.flooor][i][j] == '.') {
+				empty_cells[empty_cell_count].x = j; 
+				empty_cells[empty_cell_count].y = i; 
+				empty_cell_count++;
+			}
+		}
+	}
+	
+	Cell c;
+	
+	if (empty_cell_count > 0) {
+		int rand_index = rand() % empty_cell_count;	
+		c.x = empty_cells[rand_index].x;
+		c.y = empty_cells[rand_index].y;
+		c.flooor = room.flooor;
+	}
+	return c;
 }
