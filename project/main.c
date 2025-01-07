@@ -34,12 +34,13 @@ int color = 0; // 1:red 2:green 3:blue;
 int song = 0;  // 0:none 1:moosh 2: ali
 char last_pos;
 int flooor = 0;
+int every_thing_visible = 0;
 
 typedef struct
 {
 	int flooor, x, y;  // مختصات شروع زیرجدول
 	int width, height; // ابعاد زیرجدول
-	int visited; 	   // 1:visited 0:
+	int visited;	   // 1:visited 0:
 } Room;
 
 typedef struct
@@ -64,6 +65,7 @@ struct User
 
 char map[FLOORS][WIDTH][HEIGHT];
 Room rooms[FLOORS * ROOMS_PER_FLOOR];
+Stair stairs[FLOORS * ((ROOMS_PER_WIDTH * (ROOMS_PER_HEIGHT - 1)) + (ROOMS_PER_HEIGHT * (ROOMS_PER_WIDTH - 1)))];
 
 void empty_username();
 void add_new_user(const char *message);
@@ -91,6 +93,7 @@ void move_player(int *px, int *py, int direction);
 void start_playing();
 int contains(int num, int nums[], int size);
 Cell get_empty_cell(Room room);
+int get_room(Cell c);
 
 int main()
 {
@@ -922,6 +925,7 @@ void generate_map()
 			{
 				Room new_room;
 				new_room.flooor = floor;
+				new_room.visited = 0;
 				if (i == 0 && j == 0 && floor)
 				{
 					new_room.x = rooms[0].x;
@@ -1141,11 +1145,18 @@ void print_map(char message[], int gold, int hp)
 
 	int start_x = (LINES - WIDTH) / 2;
 	int start_y = (COLS - HEIGHT) / 2;
+	Cell c;
+	c.flooor = flooor;
 	for (int i = 0; i < WIDTH; i++)
 	{
 		for (int j = 0; j < HEIGHT; j++)
 		{
-			mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
+			c.x = i;
+			c.y = j;
+			if (rooms[get_room(c)].visited || every_thing_visible)
+			{
+				mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
+			}		
 		}
 	}
 
@@ -1160,7 +1171,7 @@ void move_player(int *px, int *py, int direction)
 	int press_f = FALSE;
 	int counter = 0;
 
-	if (direction == 'f')
+	if (direction == 'f' || direction == 'F')
 	{
 		press_f = TRUE;
 		while ((direction = getch()))
@@ -1175,6 +1186,11 @@ void move_player(int *px, int *py, int direction)
 				break;
 			}
 		}
+	}
+	
+	if(direction == 'M' || direction == 'm')
+	{
+		every_thing_visible = (every_thing_visible + 1) % 2;
 	}
 
 	if (last_pos == STAIR)
@@ -1193,6 +1209,7 @@ void move_player(int *px, int *py, int direction)
 			map[flooor][*py][*px] = PLAYER;
 			return;
 		}
+		rooms[flooor * ROOMS_PER_FLOOR].visited = 1;
 	}
 
 	do
@@ -1271,6 +1288,7 @@ void start_playing()
 
 	Cell c = get_empty_cell(rooms[0]);
 	int px = c.x, py = c.y; // موقعیت اولیه بازیکن
+	rooms[0].visited = 1;
 	map[0][py][px] = PLAYER;
 
 	print_map("Hello...", gold, hp);
@@ -1318,4 +1336,20 @@ Cell get_empty_cell(Room room)
 		c.flooor = room.flooor;
 	}
 	return c;
+}
+
+int get_room(Cell c)
+{
+	for (int i = 0; i < FLOORS * ROOMS_PER_FLOOR; i++)
+	{
+		if (c.flooor == rooms[i].flooor)
+		{
+			if ((c.x >= rooms[i].x && c.x < rooms[i].x + rooms[i].width) &&
+				(c.y >= rooms[i].y && c.y < rooms[i].y + rooms[i].height))
+			{
+				return i;
+			}
+		}
+	}
+	return -1;
 }
