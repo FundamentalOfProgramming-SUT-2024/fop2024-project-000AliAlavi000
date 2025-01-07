@@ -82,6 +82,7 @@ void save_user(const char *username, const char *password, const char *email);
 void login(const char *message);
 int login_user(const char *username, const char *password);
 int guest_login();
+void pre_game_menu();
 void forgot_password(const char *username);
 char *get_password(const char *username);
 void game_setting();
@@ -114,9 +115,7 @@ int main()
 	int startx = 0;
 	int starty = 0;
 
-	char *choices[] = {"1. Create New User", "2. Login",
-					   "3. Start Playing", "4. Profile",
-					   "5. Scores Table", "6. Setting", "7. Exit"};
+	char *choices[] = {"1. Create New User", "2. Login", "3. Exit"};
 	int n_choices = sizeof(choices) / sizeof(choices[0]);
 
 	int highlight = 1;
@@ -182,23 +181,7 @@ int main()
 		}
 		else if (choice == 3)
 		{
-			// Start Playing
-			start_playing();
-		}
-		else if (choice == 5)
-		{
-			// scores
-			scores_table();
-		}
-		else if (choice == 6)
-		{
-			game_setting();
-			play_mp3();
-			// setting
-		}
-		else if (choice == 7)
-		{
-			break; // Exit
+			break;
 		}
 		choice = 0;
 	}
@@ -472,9 +455,9 @@ void login(const char *message)
 	getstr(guest);
 	attroff(COLOR_PAIR(2));
 
-	if (guest[0] == 'Y')
+	if (guest[0] == 'Y' || guest[0] == 'y')
 	{
-		guest_login();
+		pre_game_menu();
 		return;
 	}
 
@@ -493,7 +476,7 @@ void login(const char *message)
 	getstr(forgot);
 	attroff(COLOR_PAIR(2));
 
-	if (forgot[0] == 'Y')
+	if (forgot[0] == 'Y' || forgot[0] == 'y')
 	{
 		forgot_password(username);
 		return;
@@ -514,6 +497,7 @@ void login(const char *message)
 		attron(COLOR_PAIR(4));
 		printw("\nThe user %s was successfully added...", user_name);
 		attroff(COLOR_PAIR(4));
+		pre_game_menu();
 		break;
 
 	case 0:
@@ -564,6 +548,109 @@ int login_user(const char *username, const char *password)
 
 	fclose(file);
 	return 0;
+}
+
+void pre_game_menu()
+{
+	setlocale(LC_ALL, "");
+	initscr();
+	clear();
+	refresh();
+	noecho();
+	cbreak();
+	curs_set(0);
+
+	char *choices[] = {
+		"1. Start New Game",
+		"2. Continue Previous Game",
+		"3. View Scoreboard",
+		"4. Settings",
+		"5. Exit"};
+	int n_choices = sizeof(choices) / sizeof(choices[0]);
+
+	int highlight = 1;
+	int choice = 0;
+	int c;
+
+	int menu_width = 40;
+	int menu_height = n_choices + 4;
+
+	int startx = (COLS - menu_width) / 2;
+	int starty = (LINES - menu_height) / 2;
+
+	WINDOW *menu_win = newwin(menu_height, menu_width, starty, startx);
+	keypad(menu_win, TRUE);
+
+	while (1)
+	{
+		box(menu_win, 0, 0);
+		mvwprintw(menu_win, 1, (menu_width - strlen("Pre-Game Menu")) / 2, "Pre-Game Menu");
+		for (int i = 0; i < n_choices; ++i)
+		{
+			if (highlight == i + 1)
+			{
+				wattron(menu_win, A_REVERSE);
+				mvwprintw(menu_win, i + 3, 2, "%s", choices[i]);
+				wattroff(menu_win, A_REVERSE);
+			}
+			else
+			{
+				mvwprintw(menu_win, i + 3, 2, "%s", choices[i]);
+			}
+		}
+		wrefresh(menu_win);
+		c = wgetch(menu_win);
+
+		switch (c)
+		{
+		case KEY_UP:
+			if (highlight == 1)
+				highlight = n_choices;
+			else
+				--highlight;
+			break;
+		case KEY_DOWN:
+			if (highlight == n_choices)
+				highlight = 1;
+			else
+				++highlight;
+			break;
+		case 10:
+			choice = highlight;
+			break;
+		}
+
+		if (choice == 1)
+		{
+			// Start New Game
+			start_playing();
+		}
+		else if (choice == 2)
+		{
+		}
+		else if (choice == 3)
+		{
+			// scores
+			scores_table();
+		}
+		else if (choice == 4)
+		{
+			// setting
+			game_setting();
+			play_mp3();
+		}
+		else if (choice == 5)
+		{
+			break; // Exit
+		}
+
+		choice = 0;
+	}
+
+	delwin(menu_win);
+	endwin();
+	clear();
+	refresh();
 }
 
 int guest_login()
@@ -801,6 +888,10 @@ void scores_table()
 	int total_pages = (count + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE;
 	int scroll_offset = 0;
 
+	strcat(users[0].username, " (king)");
+	strcat(users[1].username, " (master)");
+	strcat(users[2].username, " (goat)");
+
 	while (1)
 	{
 		clear();
@@ -826,16 +917,13 @@ void scores_table()
 			if (i == 0)
 			{
 				strcpy(rank_display, "🥇   ");
-				strcat(users[i].username, " (goat)");
 			}
 			else if (i == 1)
 			{
 				strcpy(rank_display, "🥈   ");
-				strcat(users[i].username, " (master)");
 			}
 			else if (i == 2)
 			{
-				strcat(users[i].username, " (king)");
 				strcpy(rank_display, "🥉   ");
 			}
 			else
@@ -1414,10 +1502,26 @@ void start_playing()
 	int ch;
 	char message[150];
 
-	while ((ch = getch()) != 'q')
+	while (1)
 	{
-		move_player(&px, &py, ch, message, &hp, &gold);
-		print_map(message, gold, hp);
+		if ((ch = getch()) != 'q' && ch != 'Q')
+		{
+			move_player(&px, &py, ch, message, &hp, &gold);
+			print_map(message, gold, hp);
+		}
+		else
+		{
+			print_map("Save Game? (Y/N)?", gold, hp);
+			ch = getch();
+			if (ch == 'y' || ch == 'Y')
+			{
+				/* code */
+			}
+			else if (ch == 'n' || ch == 'N')
+			{
+				break;
+			}
+		}
 	}
 
 	keypad(stdscr, TRUE);
