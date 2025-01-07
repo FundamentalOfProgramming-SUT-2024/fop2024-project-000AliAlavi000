@@ -27,9 +27,12 @@
 #define STAIR '<'
 #define PLAYER '1'
 #define TRAP '^'
-#define GOLD "☀"
+#define GOLD "🪙"
 #define GOLD_IN_MAP 'g'
 #define BLACK_GOLD_IN_MAP 'G'
+#define SIMPLE_FOOD "🍞"
+#define SIMPLE_FOOD_IN_MAP 'f'
+#define FULLNESS_MAX 50
 
 // format: username password email scores golds finish_games time_left
 char user_name[50];
@@ -70,6 +73,8 @@ struct User
 char map[FLOORS][WIDTH][HEIGHT];
 Room rooms[FLOORS * ROOMS_PER_FLOOR];
 int stairs[FLOORS][WIDTH][HEIGHT];
+int foods[5] = {0, 0, 0, 0, 0}; // 1:simple food
+int fullness = FULLNESS_MAX + 5;
 
 void empty_username();
 void add_new_user(const char *message);
@@ -101,6 +106,7 @@ Cell get_empty_cell(Room room);
 int get_room(Cell c);
 int show_stair(int x, int y);
 int evey_rooms_in_this_floor_visited(int flooor);
+void eat_food();
 
 int main()
 {
@@ -1086,9 +1092,15 @@ void generate_map()
 				}
 
 				int pillars = rand() % 4;
-				int traps = rand() % (8 - level);
-				int gold = rand() % (4 + level);
+				int traps = rand() % (6 - level);
+				int gold = rand() % (2 + level);
 				int black_gold = rand() % (12 + (2 * level));
+				int food = rand() % (2 + level);
+				if (!food)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = SIMPLE_FOOD_IN_MAP;
+				}
 				if (!black_gold)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1280,6 +1292,53 @@ void print_map(char message[], int gold, int hp)
 
 	printw("%s", message);
 
+	for (int i = 0; i < 10; i++)
+	{
+		if (LINES % 2 == 0)
+		{
+			move(LINES / 2 - 5 + i, 0);
+		}
+		else
+		{
+			move((LINES + 1) / 2 - 5 + i, 0);
+		}
+
+		int per = fullness / 5;
+		if (per > i)
+		{
+			printw("🟩");
+		}
+		else
+		{
+			printw("🟥");
+		}
+	}
+
+	for (int i = 0; i < 5; i++)
+	{
+		if (LINES % 2 == 0)
+		{
+			move(LINES / 2 - 3 + i, 1);
+		}
+		else
+		{
+			move((LINES + 1) / 2 - 3 + i, 1);
+		}
+		switch (foods[i])
+		{
+		case 0:
+			printw("__");
+			break;
+
+		case 1:
+			printw("%s", SIMPLE_FOOD);
+			break;
+
+		default:
+			break;
+		}
+	}
+
 	int start_x = (LINES - WIDTH) / 2;
 	int start_y = (COLS - HEIGHT) / 2;
 	Cell c;
@@ -1298,17 +1357,24 @@ void print_map(char message[], int gold, int hp)
 					mvprintw(i + start_x, j + start_y, "%c", FLOOR);
 					// attroff(COLOR_PAIR(3));
 				}
+				else if (map[flooor][i][j] == SIMPLE_FOOD_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", SIMPLE_FOOD);
+					j++;
+				}
 				else if (map[flooor][i][j] == GOLD_IN_MAP && !stairs[flooor][i][j])
 				{
 					attron(COLOR_PAIR(1));
 					mvprintw(i + start_x, j + start_y, "%s", GOLD);
 					attroff(COLOR_PAIR(1));
+					j++;
 				}
 				else if (map[flooor][i][j] == BLACK_GOLD_IN_MAP && !stairs[flooor][i][j])
 				{
 					attron(COLOR_PAIR(6));
 					mvprintw(i + start_x, j + start_y, "%s", GOLD);
 					attroff(COLOR_PAIR(6));
+					j++;
 				}
 				else
 				{
@@ -1356,6 +1422,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 		every_thing_visible = (every_thing_visible == 1) ? 0 : 1;
 		clear();
 		refresh();
+		return;
+	}
+	else if (direction == 'E' || direction == 'e')
+	{
+		eat_food();
 		return;
 	}
 
@@ -1427,8 +1498,16 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 		}
 
 		char next_cell = map[flooor][new_y][new_x];
-		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP)
+		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP)
 		{
+			fullness--;
+			if (!fullness)
+			{
+				strcpy(message, "You are very hungry 😢");
+				*hp -= 5;
+				fullness = FULLNESS_MAX + 1;
+			}
+
 			map[flooor][*py][*px] = last_pos;
 			*px = new_x;
 			*py = new_y;
@@ -1453,6 +1532,28 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				strcpy(message, "You get 20 Gold 😃💪");
 				*gold += 20;
+				last_pos = FLOOR;
+			}
+			else if (next_cell == SIMPLE_FOOD_IN_MAP)
+			{
+				int eat = 0;
+				for (int i = 0; i < 5; i++)
+				{
+					if (!foods[i])
+					{
+						eat = 1;
+						foods[i] = 1;
+						break;
+					}
+				}
+				if (eat)
+				{
+					strcpy(message, "Ommmm, You get Simple Food 🍞");
+				}
+				else
+				{
+					strcpy(message, "Oh, The provision bag is full.");
+				}
 				last_pos = FLOOR;
 			}
 			else if (next_cell == TRAP)
@@ -1504,20 +1605,47 @@ void start_playing()
 
 	while (1)
 	{
-		if ((ch = getch()) != 'q' && ch != 'Q')
+		ch = getch();
+		if (ch != 'q' && ch != 'Q')
 		{
 			move_player(&px, &py, ch, message, &hp, &gold);
 			print_map(message, gold, hp);
 		}
 		else
 		{
-			print_map("Save Game? (Y/N)?", gold, hp);
-			ch = getch();
-			if (ch == 'y' || ch == 'Y')
+			for (int i = 0; i < 150; i++)
 			{
-				/* code */
+				message[i] = ' ';
 			}
-			else if (ch == 'n' || ch == 'N')
+
+			strcpy(message, "Save Game? (Y/N/Cancel)?");
+			move(0, 0);
+			print_map(message, gold, hp);
+			int finish = 0;
+			while (1)
+			{
+				ch = getch();
+				if (ch == 'y' || ch == 'Y')
+				{
+					/* code */
+				}
+				else if (ch == 'n' || ch == 'N')
+				{
+					finish = 1;
+					break;
+				}
+				else if (ch == 'c' || ch == 'C')
+				{
+					for (int i = 0; i < 150; i++)
+					{
+						message[i] = ' ';
+					}
+					move(0, 0);
+					print_map(message, gold, hp);
+					break;
+				}
+			}
+			if (finish)
 			{
 				break;
 			}
@@ -1540,7 +1668,7 @@ Cell get_empty_cell(Room room)
 	{
 		for (int j = room.y + 1; j < room.y + room.height - 1; j++)
 		{
-			if (map[room.flooor][i][j] == '.')
+			if (map[room.flooor][i][j] == '.' && map[room.flooor][i][j - 1] == '.' && map[room.flooor][i][j + 1] == '.')
 			{
 				empty_cells[empty_cell_count].x = j;
 				empty_cells[empty_cell_count].y = i;
@@ -1607,4 +1735,82 @@ int evey_rooms_in_this_floor_visited(int flooor)
 		}
 	}
 	return visited;
+}
+
+void eat_food()
+{
+	clear();
+	refresh();						// صفحه را پاک می‌کنیم
+	int start_x = (COLS - 20) / 2;	// شروع در وسط صفحه افقی
+	int start_y = (LINES - 10) / 2; // شروع در وسط صفحه عمودی
+
+	// 1. نمایش نوار گرسنگی افقی
+	move(LINES / 2 - 5, start_x);
+	for (int i = 0; i < 10; i++) // نوار گرسنگی به‌صورت افقی
+	{
+		int per = fullness / 5;
+		if (per > i)
+		{
+			printw("🟩"); // نمایش رنگ سبز برای سیری
+		}
+		else
+		{
+			printw("🟥"); // نمایش رنگ قرمز برای گرسنگی
+		}
+	}
+
+	// 2. نمایش لیست غذاها
+	move(LINES / 2 - 3, start_x); // موقعیت لیست غذاها
+	for (int i = 0; i < 5; i++)
+	{
+		move(LINES / 2 - 3 + i, start_x);
+		switch (foods[i])
+		{
+		case 0:
+			printw("__");
+			break;
+
+		case 1:
+			printw("%s", SIMPLE_FOOD);
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	// 3. درخواست ورودی از کاربر برای انتخاب غذا
+	move(LINES - 2, start_x);
+	printw("Press a number (1-5) to choose a food:");
+	refresh();
+
+	while (1)
+	{
+		int choice = getch() - '0'; // ورودی عددی برای انتخاب غذا
+		if (choice >= 1 && choice <= 5)
+		{
+			// 4. به‌روزرسانی میزان گرسنگی پس از خوردن غذا
+			if (foods[choice - 1] == 1) // اگر غذا وجود داشته باشد
+			{
+				foods[choice - 1] = 0;
+				fullness += 40; // افزایش گرسنگی با خوردن غذا ساده
+			}
+
+			// مطمئن شویم که میزان سیری از حد مجاز بیشتر نشود
+			if (fullness > FULLNESS_MAX + 5)
+			{
+				fullness = FULLNESS_MAX + 5;
+			}
+			break;
+		}
+		if (choice == 'q' - '0' || choice == 'Q' - '0')
+		{
+			clear();
+			break;
+		}
+	}
+
+	// 5. برگشت به صفحه اصلی
+	refresh();
+	getch(); // برای جلوگیری از بستن فوری صفحه
 }
