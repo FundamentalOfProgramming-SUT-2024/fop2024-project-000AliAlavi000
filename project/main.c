@@ -50,8 +50,8 @@ typedef struct
 
 typedef struct
 {
-	Room r1, r2;
-	Cell cels[];
+	Cell cell;
+	int visited;
 } Stair;
 
 struct User
@@ -65,7 +65,7 @@ struct User
 
 char map[FLOORS][WIDTH][HEIGHT];
 Room rooms[FLOORS * ROOMS_PER_FLOOR];
-Stair stairs[FLOORS * ((ROOMS_PER_WIDTH * (ROOMS_PER_HEIGHT - 1)) + (ROOMS_PER_HEIGHT * (ROOMS_PER_WIDTH - 1)))];
+int stairs[FLOORS][WIDTH][HEIGHT];
 
 void empty_username();
 void add_new_user(const char *message);
@@ -94,6 +94,7 @@ void start_playing();
 int contains(int num, int nums[], int size);
 Cell get_empty_cell(Room room);
 int get_room(Cell c);
+int show_stair(int x, int y);
 
 int main()
 {
@@ -911,8 +912,21 @@ void generate_map()
 			for (int k = 0; k < HEIGHT; k++)
 			{
 				map[i][j][k] = ' ';
+				stairs[i][j][k] = 0;
 			}
 		}
+	}
+
+	Room r;
+	r.flooor = 0;
+	r.height = 0;
+	r.visited = 0;
+	r.width = 0;
+	r.x = 0;
+	r.y = 0;
+	for (int i = 0; i < FLOORS * ROOMS_PER_FLOOR; i++)
+	{
+		rooms[i] = r;
 	}
 
 	srand(time(NULL)); // مقداردهی تصادفی
@@ -1153,15 +1167,16 @@ void print_map(char message[], int gold, int hp)
 		{
 			c.x = i;
 			c.y = j;
-			if (rooms[get_room(c)].visited || every_thing_visible)
+			if (stairs[flooor][i][j] || rooms[get_room(c)].visited || every_thing_visible || show_stair(i, j))
 			{
 				mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
-			}		
+			}
 		}
 	}
 
 	move(LINES - 1, 0);
 	printw("Floor: %d\tHP: %d\tGold: %d", flooor + 1, hp, gold);
+	refresh();
 }
 
 void move_player(int *px, int *py, int direction)
@@ -1187,29 +1202,33 @@ void move_player(int *px, int *py, int direction)
 			}
 		}
 	}
-	
-	if(direction == 'M' || direction == 'm')
+
+	if (direction == 'M' || direction == 'm')
 	{
-		every_thing_visible = (every_thing_visible + 1) % 2;
+		every_thing_visible = (every_thing_visible == 1) ? 0 : 1;
+		clear();
+		refresh();
+		return;
 	}
 
-	if (last_pos == STAIR)
+	if (last_pos == STAIR && (direction == KEY_RIGHT || direction == KEY_LEFT))
 	{
 		if (direction == KEY_RIGHT && flooor != 0)
 		{
 			map[flooor][*py][*px] = last_pos;
 			flooor--;
 			map[flooor][*py][*px] = PLAYER;
-			return;
 		}
 		else if (direction == KEY_LEFT && flooor != FLOORS - 1)
 		{
 			map[flooor][*py][*px] = last_pos;
 			flooor++;
 			map[flooor][*py][*px] = PLAYER;
-			return;
 		}
 		rooms[flooor * ROOMS_PER_FLOOR].visited = 1;
+		clear();
+		refresh();
+		return;
 	}
 
 	do
@@ -1256,6 +1275,15 @@ void move_player(int *px, int *py, int direction)
 			*py = new_y;
 			last_pos = map[flooor][*py][*px];
 			map[flooor][*py][*px] = PLAYER;
+			stairs[flooor][*py][*px] = 1;
+			if (next_cell == DOOR)
+			{
+				Cell c;
+				c.flooor = flooor;
+				c.x = new_y;
+				c.y = new_x;
+				rooms[get_room(c)].visited = 1;
+			}
 		}
 		else if (next_cell == WALL || next_cell == PILLAR || next_cell == WINDOWW)
 		{
@@ -1268,6 +1296,7 @@ void move_player(int *px, int *py, int direction)
 	} while (press_f);
 
 	clear();
+	refresh();
 }
 
 void start_playing()
@@ -1352,4 +1381,22 @@ int get_room(Cell c)
 		}
 	}
 	return -1;
+}
+
+int show_stair(int x, int y)
+{
+	if (map[flooor][x][y] == CORRIDOR || map[flooor][x][y] == DOOR)
+	{
+		for (int i = -3; i < 4; i++)
+		{
+			for (int j = -3; j < 4; j++)
+			{
+				if (map[flooor][x + i][y + j] == PLAYER && (last_pos == DOOR || last_pos == CORRIDOR))
+				{
+					return 1;
+				}
+			}
+		}
+	}
+	return 0;
 }
