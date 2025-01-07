@@ -37,7 +37,7 @@
 // format: username password email scores golds finish_games time_left
 char user_name[50];
 int level = 1; // 1:easy 2:medium 3:hard;
-int color = 0; // 1:red 2:green 3:blue;
+int color = 0; // 0:red 1:green 2:blue;
 int song = 0;  // 0:none 1:moosh 2: ali
 char last_pos;
 int flooor = 0;
@@ -1283,11 +1283,11 @@ void connect_rooms(int floor)
 void print_map(char message[], int gold, int hp)
 {
 	start_color();
-	init_pair(1, COLOR_YELLOW, COLOR_BLACK);
-	init_pair(2, COLOR_WHITE, COLOR_BLACK);
-	init_pair(3, COLOR_RED, COLOR_BLACK);
-	init_pair(4, COLOR_GREEN, COLOR_BLACK);
-	init_pair(5, COLOR_BLACK, COLOR_WHITE);
+	init_pair(1, COLOR_RED, COLOR_BLACK);
+	init_pair(2, COLOR_GREEN, COLOR_BLACK);
+	init_pair(3, COLOR_BLUE, COLOR_BLACK);
+	init_pair(4, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(5, COLOR_WHITE, COLOR_BLACK);
 	init_pair(6, COLOR_BLACK, COLOR_YELLOW);
 
 	printw("%s", message);
@@ -1351,7 +1351,13 @@ void print_map(char message[], int gold, int hp)
 			c.y = j;
 			if (stairs[flooor][i][j] || rooms[get_room(c)].visited || every_thing_visible || show_stair(i, j))
 			{
-				if (map[flooor][i][j] == TRAP && !stairs[flooor][i][j])
+				if (map[flooor][i][j] == PLAYER)
+				{
+					attron(COLOR_PAIR(color + 1));
+					mvprintw(i + start_x, j + start_y, "%c", PLAYER);
+					attroff(COLOR_PAIR(color + 1));
+				}
+				else if (map[flooor][i][j] == TRAP && !stairs[flooor][i][j])
 				{
 					// attron(COLOR_PAIR(3));
 					mvprintw(i + start_x, j + start_y, "%c", FLOOR);
@@ -1364,9 +1370,9 @@ void print_map(char message[], int gold, int hp)
 				}
 				else if (map[flooor][i][j] == GOLD_IN_MAP && !stairs[flooor][i][j])
 				{
-					attron(COLOR_PAIR(1));
+					attron(COLOR_PAIR(4));
 					mvprintw(i + start_x, j + start_y, "%s", GOLD);
-					attroff(COLOR_PAIR(1));
+					attroff(COLOR_PAIR(4));
 					j++;
 				}
 				else if (map[flooor][i][j] == BLACK_GOLD_IN_MAP && !stairs[flooor][i][j])
