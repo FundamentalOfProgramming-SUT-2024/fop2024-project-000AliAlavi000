@@ -7,6 +7,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <locale.h>
 
 #define FILENAME "users.txt"
 #define ROWS_PER_PAGE 20
@@ -26,10 +27,13 @@
 #define STAIR '<'
 #define PLAYER '1'
 #define TRAP '^'
+#define GOLD "☀"
+#define GOLD_IN_MAP 'g'
+#define BLACK_GOLD_IN_MAP 'G'
 
 // format: username password email scores golds finish_games time_left
 char user_name[50];
-int level = 0; // 1:easy 2:medium 3:hard;
+int level = 1; // 1:easy 2:medium 3:hard;
 int color = 0; // 1:red 2:green 3:blue;
 int song = 0;  // 0:none 1:moosh 2: ali
 char last_pos;
@@ -89,7 +93,7 @@ void draw_corridor(int floor, int x1, int y1, int x2, int y2);
 void generate_unique_random_numbers(int a, int b, int result[]); // generate a numbers from 0 to b
 void connect_rooms(int floor);
 void print_map(char message[], int gold, int hp);
-void move_player(int *px, int *py, int direction, char *message);
+void move_player(int *px, int *py, int direction, char *message, int *hp, int *gold);
 void start_playing();
 int contains(int num, int nums[], int size);
 Cell get_empty_cell(Room room);
@@ -99,6 +103,7 @@ int evey_rooms_in_this_floor_visited(int flooor);
 
 int main()
 {
+	setlocale(LC_ALL, "");
 	play_mp3();
 	initscr();
 	clear();
@@ -819,11 +824,20 @@ void scores_table()
 		{
 			char rank_display[12];
 			if (i == 0)
-				strcpy(rank_display, "🥇");
+			{
+				strcpy(rank_display, "🥇   ");
+				strcat(users[i].username, " (goat)");
+			}
 			else if (i == 1)
-				strcpy(rank_display, "🥈");
+			{
+				strcpy(rank_display, "🥈   ");
+				strcat(users[i].username, " (master)");
+			}
 			else if (i == 2)
-				strcpy(rank_display, "🥉");
+			{
+				strcat(users[i].username, " (king)");
+				strcpy(rank_display, "🥉   ");
+			}
 			else
 				sprintf(rank_display, "%d", i + 1);
 
@@ -984,7 +998,19 @@ void generate_map()
 				}
 
 				int pillars = rand() % 4;
-				int traps = rand() % 8;
+				int traps = rand() % (8 - level);
+				int gold = rand() % (4 + level);
+				int black_gold = rand() % (12 + (2 * level));
+				if (!black_gold)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = BLACK_GOLD_IN_MAP;
+				}
+				if (!gold)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = GOLD_IN_MAP;
+				}
 				if (!traps)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1156,6 +1182,14 @@ void connect_rooms(int floor)
 
 void print_map(char message[], int gold, int hp)
 {
+	start_color();
+	init_pair(1, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(2, COLOR_WHITE, COLOR_BLACK);
+	init_pair(3, COLOR_RED, COLOR_BLACK);
+	init_pair(4, COLOR_GREEN, COLOR_BLACK);
+	init_pair(5, COLOR_BLACK, COLOR_WHITE);
+	init_pair(6, COLOR_BLACK, COLOR_YELLOW);
+
 	printw("%s", message);
 
 	int start_x = (LINES - WIDTH) / 2;
@@ -1170,7 +1204,28 @@ void print_map(char message[], int gold, int hp)
 			c.y = j;
 			if (stairs[flooor][i][j] || rooms[get_room(c)].visited || every_thing_visible || show_stair(i, j))
 			{
-				mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
+				if (map[flooor][i][j] == TRAP && !stairs[flooor][i][j])
+				{
+					// attron(COLOR_PAIR(3));
+					mvprintw(i + start_x, j + start_y, "%c", FLOOR);
+					// attroff(COLOR_PAIR(3));
+				}
+				else if (map[flooor][i][j] == GOLD_IN_MAP && !stairs[flooor][i][j])
+				{
+					attron(COLOR_PAIR(1));
+					mvprintw(i + start_x, j + start_y, "%s", GOLD);
+					attroff(COLOR_PAIR(1));
+				}
+				else if (map[flooor][i][j] == BLACK_GOLD_IN_MAP && !stairs[flooor][i][j])
+				{
+					attron(COLOR_PAIR(6));
+					mvprintw(i + start_x, j + start_y, "%s", GOLD);
+					attroff(COLOR_PAIR(6));
+				}
+				else
+				{
+					mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
+				}
 			}
 		}
 	}
@@ -1180,7 +1235,7 @@ void print_map(char message[], int gold, int hp)
 	refresh();
 }
 
-void move_player(int *px, int *py, int direction, char *message)
+void move_player(int *px, int *py, int direction, char *message, int *hp, int *gold)
 {
 	for (int i = 0; i < 150; i++)
 	{
@@ -1284,7 +1339,7 @@ void move_player(int *px, int *py, int direction, char *message)
 		}
 
 		char next_cell = map[flooor][new_y][new_x];
-		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR)
+		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP)
 		{
 			map[flooor][*py][*px] = last_pos;
 			*px = new_x;
@@ -1299,6 +1354,23 @@ void move_player(int *px, int *py, int direction, char *message)
 				c.x = new_y;
 				c.y = new_x;
 				rooms[get_room(c)].visited = 1;
+			}
+			else if (next_cell == GOLD_IN_MAP)
+			{
+				strcpy(message, "You get 2 Gold 😀");
+				*gold += 2;
+				last_pos = FLOOR;
+			}
+			else if (next_cell == BLACK_GOLD_IN_MAP)
+			{
+				strcpy(message, "You get 20 Gold 😃💪");
+				*gold += 20;
+				last_pos = FLOOR;
+			}
+			else if (next_cell == TRAP)
+			{
+				strcpy(message, "Ohhh, you went on TRAPE");
+				*hp -= 10;
 			}
 		}
 		else if (next_cell == WALL || next_cell == PILLAR || next_cell == WINDOWW)
@@ -1344,7 +1416,7 @@ void start_playing()
 
 	while ((ch = getch()) != 'q')
 	{
-		move_player(&px, &py, ch, message);
+		move_player(&px, &py, ch, message, &hp, &gold);
 		print_map(message, gold, hp);
 	}
 
