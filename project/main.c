@@ -89,12 +89,13 @@ void draw_corridor(int floor, int x1, int y1, int x2, int y2);
 void generate_unique_random_numbers(int a, int b, int result[]); // generate a numbers from 0 to b
 void connect_rooms(int floor);
 void print_map(char message[], int gold, int hp);
-void move_player(int *px, int *py, int direction);
+void move_player(int *px, int *py, int direction, char *message);
 void start_playing();
 int contains(int num, int nums[], int size);
 Cell get_empty_cell(Room room);
 int get_room(Cell c);
 int show_stair(int x, int y);
+int evey_rooms_in_this_floor_visited(int flooor);
 
 int main()
 {
@@ -1179,8 +1180,12 @@ void print_map(char message[], int gold, int hp)
 	refresh();
 }
 
-void move_player(int *px, int *py, int direction)
+void move_player(int *px, int *py, int direction, char *message)
 {
+	for (int i = 0; i < 150; i++)
+	{
+		message[i] = ' ';
+	}
 	int new_x = *px;
 	int new_y = *py;
 	int press_f = FALSE;
@@ -1221,9 +1226,20 @@ void move_player(int *px, int *py, int direction)
 		}
 		else if (direction == KEY_LEFT && flooor != FLOORS - 1)
 		{
-			map[flooor][*py][*px] = last_pos;
-			flooor++;
-			map[flooor][*py][*px] = PLAYER;
+			// if (evey_rooms_in_this_floor_visited(flooor))
+			if (1)
+			{
+				map[flooor][*py][*px] = last_pos;
+				flooor++;
+				map[flooor][*py][*px] = PLAYER;
+			}
+			else
+			{
+				strcpy(message, "First explore all the rooms...");
+				clear();
+				refresh();
+				return;
+			}
 		}
 		rooms[flooor * ROOMS_PER_FLOOR].visited = 1;
 		clear();
@@ -1324,10 +1340,12 @@ void start_playing()
 
 	last_pos = FLOOR;
 	int ch;
+	char message[150];
+
 	while ((ch = getch()) != 'q')
 	{
-		move_player(&px, &py, ch);
-		print_map("", gold, hp);
+		move_player(&px, &py, ch, message);
+		print_map(message, gold, hp);
 	}
 
 	keypad(stdscr, TRUE);
@@ -1399,4 +1417,18 @@ int show_stair(int x, int y)
 		}
 	}
 	return 0;
+}
+
+int evey_rooms_in_this_floor_visited(int flooor)
+{
+	int visited = 1;
+	for (int i = 0; i < ROOMS_PER_FLOOR; i++)
+	{
+		if (!rooms[flooor * ROOMS_PER_FLOOR + i].visited)
+		{
+			visited = 0;
+			break;
+		}
+	}
+	return visited;
 }
