@@ -1398,6 +1398,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 	int new_x = *px;
 	int new_y = *py;
 	int press_f = FALSE;
+	int press_g = FALSE;
 	int counter = 0;
 
 	if (direction == 'f' || direction == 'F')
@@ -1428,6 +1429,22 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 	{
 		eat_food();
 		return;
+	}
+	else if (direction == 'g' || direction == 'G')
+	{
+		press_g = TRUE;
+		while ((direction = getch()))
+		{
+			if (direction == 'f')
+			{
+				press_f = FALSE;
+				break;
+			}
+			if (direction >= '1' && direction <= '9')
+			{
+				break;
+			}
+		}
 	}
 
 	if (last_pos == STAIR && (direction == KEY_RIGHT || direction == KEY_LEFT))
@@ -1524,37 +1541,58 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			}
 			else if (next_cell == GOLD_IN_MAP)
 			{
-				strcpy(message, "You get 2 Gold 😀");
-				*gold += 2;
-				last_pos = FLOOR;
-			}
-			else if (next_cell == BLACK_GOLD_IN_MAP)
-			{
-				strcpy(message, "You get 20 Gold 😃💪");
-				*gold += 20;
-				last_pos = FLOOR;
-			}
-			else if (next_cell == SIMPLE_FOOD_IN_MAP)
-			{
-				int eat = 0;
-				for (int i = 0; i < 5; i++)
+				if (!press_g)
 				{
-					if (!foods[i])
-					{
-						eat = 1;
-						foods[i] = 1;
-						break;
-					}
-				}
-				if (eat)
-				{
-					strcpy(message, "Ommmm, You get Simple Food 🍞");
+					strcpy(message, "You get 2 Gold 😀");
+					*gold += 2;
+					last_pos = FLOOR;
 				}
 				else
 				{
-					strcpy(message, "Oh, The provision bag is full.");
+					stairs[flooor][*py][*px] = 0;
 				}
-				last_pos = FLOOR;
+			}
+			else if (next_cell == BLACK_GOLD_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get 20 Gold 😃💪");
+					*gold += 20;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == SIMPLE_FOOD_IN_MAP)
+			{
+				if (!press_g)
+				{
+					int eat = 0;
+					for (int i = 0; i < 5; i++)
+					{
+						if (!foods[i])
+						{
+							eat = 1;
+							foods[i] = 1;
+							break;
+						}
+					}
+					if (eat)
+					{
+						strcpy(message, "Ommmm, You get Simple Food 🍞");
+					}
+					else
+					{
+						strcpy(message, "Oh, The provision bag is full.");
+					}
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
 			}
 			else if (next_cell == TRAP)
 			{
@@ -1570,6 +1608,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 		{
 			return;
 		}
+
 	} while (press_f);
 
 	clear();
@@ -1805,12 +1844,12 @@ void eat_food()
 		}
 		if (choice == 'q' - '0' || choice == 'Q' - '0')
 		{
-			clear();
 			break;
 		}
 	}
 
 	// 5. برگشت به صفحه اصلی
+	clear();
 	refresh();
 	getch(); // برای جلوگیری از بستن فوری صفحه
 }
