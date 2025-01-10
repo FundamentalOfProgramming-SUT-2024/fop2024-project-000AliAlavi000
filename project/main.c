@@ -48,6 +48,8 @@
 #define SPEED_IN_MAP 'S'
 #define DAMAGE "💥"
 #define DAMAGE_IN_MAP 'M'
+#define FINISH_GAME "🏆"
+#define FINISH_GAME_IN_MAP 'F'
 #define FULLNESS_MAX 50
 #define WEAPONS_COUNT 5
 #define POTIONS_COUNT 3
@@ -1148,6 +1150,13 @@ void generate_map()
 						map[floor][new_room.x][new_room.y + new_room.height - 1] = '_';
 					}
 				}
+				
+				if (new_room.kind ==  1)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = FINISH_GAME_IN_MAP;
+				}
+				
 
 				int pillars = 1,
 					traps = 1,
@@ -1213,6 +1222,20 @@ void generate_map()
 					damage = rand() % (4 + level);
 				}
 
+				if (new_room.kind == 1)
+				{
+					for (int i = 0; i < 7; i++)
+					{
+						Cell t = get_empty_cell(new_room);
+						map[floor][t.y][t.x] = TRAP;
+					}
+				}
+
+				if (!traps)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = TRAP;
+				}
 				if (!health)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1252,20 +1275,6 @@ void generate_map()
 				{
 					Cell t = get_empty_cell(new_room);
 					map[floor][t.y][t.x] = GOLD_IN_MAP;
-				}
-				if (!traps)
-				{
-					if (new_room.kind == 1)
-					{
-						for (int i = 0; i < 8; i++)
-						{
-							Cell t = get_empty_cell(new_room);
-							map[floor][t.y][t.x] = TRAP;
-						}
-					}
-
-					Cell t = get_empty_cell(new_room);
-					map[floor][t.y][t.x] = TRAP;
 				}
 				if (pillars < 3)
 				{
@@ -1547,6 +1556,14 @@ void print_map(char message[], int gold, int hp)
 					continue;
 				}
 
+				int kind = rooms[get_room(c)].kind;
+				if (kind == 1)
+					attron(COLOR_PAIR(4));
+				else if (kind == 2)
+					attron(COLOR_PAIR(3));
+				else if (kind == 3)
+					attron(COLOR_PAIR(7));
+
 				if (map[flooor][i][j] == PLAYER)
 				{
 					attron(COLOR_PAIR(color + 1));
@@ -1613,25 +1630,22 @@ void print_map(char message[], int gold, int hp)
 					mvprintw(i + start_x, j + start_y, "%s", DAMAGE);
 					j++;
 				}
+				else if (map[flooor][i][j] == FINISH_GAME_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", FINISH_GAME);
+					j++;
+				}
 				else
 				{
-					int kind = rooms[get_room(c)].kind;
-					if (kind == 1)
-						attron(COLOR_PAIR(4));
-					else if (kind == 2)
-						attron(COLOR_PAIR(3));
-					else if (kind == 3)
-						attron(COLOR_PAIR(7));
-
 					mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
-
-					if (kind == 1)
-						attroff(COLOR_PAIR(4));
-					else if (kind == 2)
-						attroff(COLOR_PAIR(3));
-					else if (kind == 3)
-						attroff(COLOR_PAIR(7));
 				}
+
+				if (kind == 1)
+					attroff(COLOR_PAIR(4));
+				else if (kind == 2)
+					attroff(COLOR_PAIR(3));
+				else if (kind == 3)
+					attroff(COLOR_PAIR(7));
 			}
 		}
 	}
@@ -1772,7 +1786,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 		}
 
 		char next_cell = map[flooor][new_y][new_x];
-		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP || next_cell == DAGGER_IN_MAP || next_cell == MAGIC_WAND_IN_MAP || next_cell == NORMAL_ARROW_IN_MAP || next_cell == SWARD_IN_MAP || next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP)
+		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP || next_cell == DAGGER_IN_MAP || next_cell == MAGIC_WAND_IN_MAP || next_cell == NORMAL_ARROW_IN_MAP || next_cell == SWARD_IN_MAP || next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP || next_cell == FINISH_GAME_IN_MAP)
 		{
 			fullness--;
 			if (!fullness)
@@ -1986,6 +2000,10 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 					stairs[flooor][*py][*px] = 0;
 				}
 			}
+			else if (next_cell == FINISH_GAME_IN_MAP)
+			{
+				last_pos = FINISH_GAME_IN_MAP;
+			}
 		}
 		else if (next_cell == WALL || next_cell == PILLAR || next_cell == WINDOWW)
 		{
@@ -2032,7 +2050,7 @@ void start_playing()
 	while (1)
 	{
 		ch = getch();
-		if (ch != 'q' && ch != 'Q')
+		if (ch != 'q' && ch != 'Q' && last_pos != FINISH_GAME_IN_MAP)
 		{
 			move_player(&px, &py, ch, message, &hp, &gold);
 			print_map(message, gold, hp);
