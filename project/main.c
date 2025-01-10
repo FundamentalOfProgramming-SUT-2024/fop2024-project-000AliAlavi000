@@ -66,6 +66,7 @@ typedef struct
 	int flooor, x, y;  // مختصات شروع زیرجدول
 	int width, height; // ابعاد زیرجدول
 	int visited;	   // 1:visited 0:
+	int kind;		   // 0:simple 1:Treasure 2:Enchant 3:Nightmare
 } Room;
 
 typedef struct
@@ -1086,6 +1087,7 @@ void generate_map()
 				Room new_room;
 				new_room.flooor = floor;
 				new_room.visited = 0;
+				new_room.kind = 0;
 				if (i == 0 && j == 0 && floor)
 				{
 					new_room.x = rooms[0].x;
@@ -1103,6 +1105,24 @@ void generate_map()
 						new_room.x = (rand() % (w - new_room.width)) + (w * (i % ROOMS_PER_WIDTH) + 2);
 						new_room.y = (rand() % (h - new_room.height)) + (h * (j % ROOMS_PER_HEIGHT) + 2);
 					} while (new_room.x + new_room.width >= WIDTH - 1 || new_room.y + new_room.height >= HEIGHT - 1);
+				}
+
+				int kind = rand() % 10;
+
+				if (kind == 0 && floor == FLOORS - 1)
+					new_room.kind = 1;
+				else if (kind < 3)
+					new_room.kind = 2;
+				else if (kind < 5)
+					new_room.kind = 3;
+
+				if (floor == FLOORS - 1 && i == ROOMS_PER_WIDTH - 1 && j == ROOMS_PER_HEIGHT - 1)
+				{
+					new_room.kind = 1;
+				}
+				else if (!floor && !i && !j)
+				{
+					new_room.kind = 0;
 				}
 
 				rooms[floor * ROOMS_PER_FLOOR + i + (j * ROOMS_PER_WIDTH)] = new_room;
@@ -1128,17 +1148,69 @@ void generate_map()
 					}
 				}
 
-				int pillars = rand() % 4;
-				int traps = rand() % (6 - level);
-				int gold = rand() % (2 + level);
-				int black_gold = rand() % (12 + (2 * level));
-				int food = rand() % (2 + level);
-				int dagger = rand() % (3 + level);
-				int magic_wand = rand() % (4 + level);
-				int normal_arrow = rand() % (3 + level);
-				int health = rand() % (4 + level);
-				int speed = rand() % (4 + level);
-				int damage = rand() % (4 + level);
+				int pillars = 1,
+					traps = 1,
+					gold = 1,
+					black_gold = 1,
+					food = 1,
+					dagger = 1,
+					magic_wand = 1,
+					normal_arrow = 1,
+					health = 1,
+					speed = 1,
+					damage = 1;
+				if (new_room.kind == 1)
+				{
+					pillars = rand() % 4;
+					traps = rand() % (6 - level);
+					food = rand() % (1 + level);
+					dagger = rand() % (8 + level);
+					magic_wand = rand() % (8 + level);
+					normal_arrow = rand() % (8 + level);
+					health = rand() % (8 + level);
+					speed = rand() % (8 + level);
+					damage = rand() % (8 + level);
+				}
+				else if (new_room.kind == 2)
+				{
+					pillars = rand() % 4;
+					gold = rand() % (5 + level);
+					black_gold = rand() % (20 + (2 * level));
+					food = rand() % (1 + level);
+					dagger = rand() % (5 + level);
+					magic_wand = rand() % (2 + level);
+					normal_arrow = rand() % (1 + level);
+					health = rand() % (1 + level);
+					speed = rand() % (1 + level);
+					damage = rand() % (1 + level);
+				}
+				else if (new_room.kind == 3)
+				{
+					pillars = rand() % 4;
+					gold = rand() % (2 + level);
+					black_gold = rand() % (12 + (2 * level));
+					food = rand() % (1 + level);
+					dagger = rand() % (3 + level);
+					magic_wand = rand() % (4 + level);
+					normal_arrow = rand() % (3 + level);
+					health = rand() % (4 + level);
+					speed = rand() % (4 + level);
+					damage = rand() % (4 + level);
+				}
+				else
+				{
+					pillars = rand() % 4;
+					traps = rand() % (6 - level);
+					gold = rand() % (1 + level);
+					black_gold = rand() % (6 + (2 * level));
+					food = rand() % (level);
+					dagger = rand() % (3 + level);
+					magic_wand = rand() % (4 + level);
+					normal_arrow = rand() % (3 + level);
+					health = rand() % (4 + level);
+					speed = rand() % (4 + level);
+					damage = rand() % (4 + level);
+				}
 
 				if (!health)
 				{
@@ -1182,6 +1254,15 @@ void generate_map()
 				}
 				if (!traps)
 				{
+					if (new_room.kind == 1)
+					{
+						for (int i = 0; i < 8; i++)
+						{
+							Cell t = get_empty_cell(new_room);
+							map[floor][t.y][t.x] = TRAP;
+						}
+					}
+
 					Cell t = get_empty_cell(new_room);
 					map[floor][t.y][t.x] = TRAP;
 				}
@@ -1363,6 +1444,7 @@ void print_map(char message[], int gold, int hp)
 	init_pair(4, COLOR_YELLOW, COLOR_BLACK);
 	init_pair(5, COLOR_WHITE, COLOR_BLACK);
 	init_pair(6, COLOR_BLACK, COLOR_YELLOW);
+	init_pair(7, COLOR_MAGENTA, COLOR_BLACK);
 
 	printw("%s", message);
 
@@ -1526,7 +1608,22 @@ void print_map(char message[], int gold, int hp)
 				}
 				else
 				{
+					int kind = rooms[get_room(c)].kind;
+					if (kind == 1)
+						attron(COLOR_PAIR(4));
+					else if (kind == 2)
+						attron(COLOR_PAIR(3));
+					else if (kind == 3)
+						attron(COLOR_PAIR(7));
+
 					mvprintw(i + start_x, j + start_y, "%c", map[flooor][i][j]);
+
+					if (kind == 1)
+						attroff(COLOR_PAIR(4));
+					else if (kind == 2)
+						attroff(COLOR_PAIR(3));
+					else if (kind == 3)
+						attroff(COLOR_PAIR(7));
 				}
 			}
 		}
