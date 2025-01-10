@@ -32,7 +32,25 @@
 #define BLACK_GOLD_IN_MAP 'G'
 #define SIMPLE_FOOD "🍞"
 #define SIMPLE_FOOD_IN_MAP 'f'
+#define MACE_IN_MAP 'm'
+#define MACE "⚒"	// گرز
+#define DAGGER "🗡" // خنجر
+#define DAGGER_IN_MAP 'd'
+#define MAGIC_WAND "🪄" // عصای جادویی
+#define MAGIC_WAND_IN_MAP 'w'
+#define NORMAL_ARROW "➳" // تیر عادی
+#define NORMAL_ARROW_IN_MAP 'a'
+#define SWARD "⚔" // شمشیر
+#define SWARD_IN_MAP 's'
+#define HEALTH "🩺"
+#define HEALTH_IN_MAP 'h'
+#define SPEED "🚀"
+#define SPEED_IN_MAP 'S'
+#define DAMAGE "💥"
+#define DAMAGE_IN_MAP 'M'
 #define FULLNESS_MAX 50
+#define WEAPONS_COUNT 5
+#define POTIONS_COUNT 3
 
 // format: username password email scores golds finish_games time_left
 char user_name[50];
@@ -75,6 +93,13 @@ Room rooms[FLOORS * ROOMS_PER_FLOOR];
 int stairs[FLOORS][WIDTH][HEIGHT];
 int foods[5] = {0, 0, 0, 0, 0}; // 1:simple food
 int fullness = FULLNESS_MAX + 5;
+int weapons[5] = {0, 0, 0, 0, 0};						// MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
+char weapons_icons[5][5] = {"⚒", "🗡", "🪄", "➳", "⚔"}; // MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
+int current_weapon = 0;
+char *weapons_names[WEAPONS_COUNT] = {"Mace", "Dagger", "Magic Wand", "Normal Arrow", "Sword"};
+int potions[3] = {0, 0, 0};					   // HEALTH SPEED DAMAGE
+char potions_icons[3][5] = {"🩺", "🚀", "💥"}; // HEALTH SPEED DAMAGE
+char *potions_names[POTIONS_COUNT] = {"Health Potion", "Speed Potion", "Damage Potion"};
 
 void empty_username();
 void add_new_user(const char *message);
@@ -107,6 +132,7 @@ int get_room(Cell c);
 int show_stair(int x, int y);
 int evey_rooms_in_this_floor_visited(int flooor);
 void eat_food();
+void show_inventory();
 
 int main()
 {
@@ -1026,6 +1052,17 @@ void generate_map()
 		}
 	}
 
+	for (int i = 0; i < 5; i++)
+	{
+		foods[i] = 0;
+		weapons[i] = 0;
+		if (i < 3)
+		{
+			potions[i] = 0;
+		}
+	}
+	current_weapon = 0;
+
 	Room r;
 	r.flooor = 0;
 	r.height = 0;
@@ -1096,6 +1133,38 @@ void generate_map()
 				int gold = rand() % (2 + level);
 				int black_gold = rand() % (12 + (2 * level));
 				int food = rand() % (2 + level);
+				int dagger = rand() % (3 + level);
+				int magic_wand = rand() % (4 + level);
+				int normal_arrow = rand() % (3 + level);
+				int health = rand() % (4 + level);
+				int speed = rand() % (4 + level);
+				int damage = rand() % (4 + level);
+
+				if (!health)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = HEALTH_IN_MAP;
+				}
+				if (!speed)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = SPEED_IN_MAP;
+				}
+				if (!damage)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = DAMAGE_IN_MAP;
+				}
+				if (!magic_wand)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = MAGIC_WAND_IN_MAP;
+				}
+				if (!normal_arrow)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = NORMAL_ARROW_IN_MAP;
+				}
 				if (!food)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1128,11 +1197,16 @@ void generate_map()
 		}
 		connect_rooms(floor);
 	}
+	int sward_room = rand() % (ROOMS_PER_FLOOR);
 	Cell stair = get_empty_cell(rooms[0]);
+	Cell sward = get_empty_cell(rooms[sward_room]);
+
 	for (int i = 0; i < FLOORS; i++)
 	{
 		map[i][stair.y][stair.x] = STAIR;
 	}
+	map[sward.flooor][sward.y][sward.x] = SWARD_IN_MAP;
+	weapons[0] = 1;
 }
 
 int contains(int num, int nums[], int size)
@@ -1339,6 +1413,39 @@ void print_map(char message[], int gold, int hp)
 		}
 	}
 
+	for (int i = 0; i < 5; i++)
+	{
+		if (LINES % 2 == 0)
+		{
+			move(LINES / 2 - 5 + i, COLS - 6);
+		}
+		else
+		{
+			move((LINES + 1) / 2 - 5 + i, COLS - 6);
+		}
+		if (current_weapon == i)
+		{
+			attron(COLOR_PAIR(4));
+		}
+		printw("%-5s|%d", weapons_icons[i], weapons[i]);
+		if (current_weapon == i)
+		{
+			attroff(COLOR_PAIR(4));
+		}
+	}
+	for (int i = 0; i < 3; i++)
+	{
+		if (LINES % 2 == 0)
+		{
+			move(LINES / 2 + 1 + i, COLS - 6);
+		}
+		else
+		{
+			move((LINES + 1) / 2 + 1 + i, COLS - 6);
+		}
+		printw("%-5s|%d", potions_icons[i], potions[i]);
+	}
+
 	int start_x = (LINES - WIDTH) / 2;
 	int start_y = (COLS - HEIGHT) / 2;
 	Cell c;
@@ -1380,6 +1487,41 @@ void print_map(char message[], int gold, int hp)
 					attron(COLOR_PAIR(6));
 					mvprintw(i + start_x, j + start_y, "%s", GOLD);
 					attroff(COLOR_PAIR(6));
+					j++;
+				}
+				else if (map[flooor][i][j] == DAGGER_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", DAGGER);
+					j++;
+				}
+				else if (map[flooor][i][j] == MAGIC_WAND_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", MAGIC_WAND);
+					j++;
+				}
+				else if (map[flooor][i][j] == NORMAL_ARROW_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", NORMAL_ARROW);
+					j++;
+				}
+				else if (map[flooor][i][j] == SWARD_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", SWARD);
+					j++;
+				}
+				else if (map[flooor][i][j] == HEALTH_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", HEALTH);
+					j++;
+				}
+				else if (map[flooor][i][j] == SPEED_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", SPEED);
+					j++;
+				}
+				else if (map[flooor][i][j] == DAMAGE_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", DAMAGE);
 					j++;
 				}
 				else
@@ -1434,6 +1576,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 	else if (direction == 'E' || direction == 'e')
 	{
 		eat_food();
+		return;
+	}
+	else if (direction == 'I' || direction == 'i')
+	{
+		show_inventory();
 		return;
 	}
 	else if (direction == 'g' || direction == 'G')
@@ -1521,7 +1668,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 		}
 
 		char next_cell = map[flooor][new_y][new_x];
-		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP)
+		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP || next_cell == DAGGER_IN_MAP || next_cell == MAGIC_WAND_IN_MAP || next_cell == NORMAL_ARROW_IN_MAP || next_cell == SWARD_IN_MAP || next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP)
 		{
 			fullness--;
 			if (!fullness)
@@ -1604,6 +1751,97 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				strcpy(message, "Ohhh, you went on TRAPE");
 				*hp -= 10;
+			}
+			else if (next_cell == DAGGER_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get 10 Daggers 🗡");
+					weapons[1] += 10;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == MAGIC_WAND_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get 8 Magic Wand 🪄");
+					weapons[2] += 8;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == NORMAL_ARROW_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get 20 Noemal Arrows ➳");
+					weapons[3] += 20;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == SWARD_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get Sward ⚔");
+					weapons[4] = 1;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == HEALTH_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get Health potion 🩺");
+					potions[0] += 1;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == SPEED_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get Speed potion 🚀");
+					potions[1] += 1;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == DAMAGE_IN_MAP)
+			{
+				if (!press_g)
+				{
+					strcpy(message, "You get Damage potion 💥");
+					potions[2] += 1;
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
 			}
 		}
 		else if (next_cell == WALL || next_cell == PILLAR || next_cell == WINDOWW)
@@ -1858,4 +2096,85 @@ void eat_food()
 	clear();
 	refresh();
 	getch(); // برای جلوگیری از بستن فوری صفحه
+}
+
+void show_inventory()
+{
+	initscr();
+	cbreak();
+	noecho();
+	keypad(stdscr, TRUE);
+	curs_set(0);
+
+	clear();
+	refresh();
+
+	int selected_weapon = current_weapon;
+	int ch;
+
+	// رسم جدول اولیه
+	mvprintw(1, (COLS - 20) / 2, "Your Inventory");
+	mvprintw(13, (COLS - 50) / 2, "Use arrow keys to navigate, Enter to select, Q to quit");
+
+	while (1)
+	{
+		// به‌روزرسانی سلاح‌ها
+		for (int i = 0; i < WEAPONS_COUNT; i++)
+		{
+			// پاک کردن خط قبل از نوشتن
+			mvprintw(3 + i, (COLS - 30) / 2, "                                                     ");
+			if (i == selected_weapon)
+			{
+				attron(A_REVERSE); // انتخاب سلاح فعلی
+			}
+			mvprintw(3 + i, (COLS - 30) / 2, "%s %s (%d)", weapons_icons[i], weapons_names[i], weapons[i]);
+			if (i == selected_weapon)
+			{
+				attroff(A_REVERSE);
+			}
+		}
+
+		// به‌روزرسانی معجون‌ها
+		for (int i = 0; i < POTIONS_COUNT; i++)
+		{
+			// پاک کردن خط قبل از نوشتن
+			mvprintw(9 + i, (COLS - 30) / 2, "                          ");
+			mvprintw(9 + i, (COLS - 30) / 2, "%s %s (%d)", potions_icons[i], potions_names[i], potions[i]);
+		}
+
+		// به‌روزرسانی صفحه
+		refresh();
+
+		// دریافت ورودی کاربر
+		ch = getch();
+		switch (ch)
+		{
+		case KEY_UP:
+			if (selected_weapon > 0)
+				selected_weapon--;
+			break;
+		case KEY_DOWN:
+			if (selected_weapon < WEAPONS_COUNT - 1)
+				selected_weapon++;
+			break;
+		case '\n': // Enter key
+			if (selected_weapon != current_weapon)
+			{
+				mvprintw(15, (COLS - 50) / 2, "                                                       ");
+				mvprintw(15, (COLS - 50) / 2, "You put down %s and picked up %s", weapons_names[current_weapon], weapons_names[selected_weapon]);
+				weapons[current_weapon]--;
+				weapons[selected_weapon]++;
+				current_weapon = selected_weapon;
+				refresh();
+				getch();
+			}
+			break;
+		case 'q':
+		case 'Q':
+			endwin();
+			clear();
+			refresh();
+			return;
+		}
+	}
 }
