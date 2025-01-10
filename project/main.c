@@ -89,7 +89,7 @@ struct User
 	int time_left;
 };
 
-char map[FLOORS][WIDTH][HEIGHT];
+char map[FLOORS][WIDTH][HEIGHT] = {0};
 Room rooms[FLOORS * ROOMS_PER_FLOOR];
 int stairs[FLOORS][WIDTH][HEIGHT];
 int foods[5] = {0, 0, 0, 0, 0}; // 1:simple food
@@ -134,6 +134,7 @@ int show_stair(int x, int y);
 int evey_rooms_in_this_floor_visited(int flooor);
 void eat_food();
 void show_inventory();
+int show_nightmare(int x, int y);
 
 int main()
 {
@@ -1538,8 +1539,14 @@ void print_map(char message[], int gold, int hp)
 		{
 			c.x = i;
 			c.y = j;
+			int room_index = get_room(c);
 			if (stairs[flooor][i][j] || rooms[get_room(c)].visited || every_thing_visible || show_stair(i, j))
 			{
+				if (room_index != -1 && rooms[room_index].kind == 3 && !show_nightmare(i, j) && !every_thing_visible)
+				{
+					continue;
+				}
+
 				if (map[flooor][i][j] == PLAYER)
 				{
 					attron(COLOR_PAIR(color + 1));
@@ -1781,20 +1788,32 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			last_pos = map[flooor][*py][*px];
 			map[flooor][*py][*px] = PLAYER;
 			stairs[flooor][*py][*px] = 1;
+
+			Cell c;
+			c.flooor = flooor;
+			c.x = new_y;
+			c.y = new_x;
+
+			int room_index = get_room(c);
+			int nightmare = 0;
+			if (room_index != -1 && rooms[room_index].kind == 3)
+			{
+				nightmare = 1;
+			}
+
 			if (next_cell == DOOR)
 			{
-				Cell c;
-				c.flooor = flooor;
-				c.x = new_y;
-				c.y = new_x;
-				rooms[get_room(c)].visited = 1;
+				rooms[room_index].visited = 1;
 			}
 			else if (next_cell == GOLD_IN_MAP)
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get 2 Gold 😀");
-					*gold += 2;
+					if (!nightmare)
+					{
+						*gold += 2;
+						strcpy(message, "You get 2 Gold 😀");
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1806,8 +1825,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get 20 Gold 😃💪");
-					*gold += 20;
+					if (!nightmare)
+					{
+						strcpy(message, "You get 20 Gold 😃💪");
+						*gold += 20;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1819,23 +1841,26 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					int eat = 0;
-					for (int i = 0; i < 5; i++)
+					if (!nightmare)
 					{
-						if (!foods[i])
+						int eat = 0;
+						for (int i = 0; i < 5; i++)
 						{
-							eat = 1;
-							foods[i] = 1;
-							break;
+							if (!foods[i])
+							{
+								eat = 1;
+								foods[i] = 1;
+								break;
+							}
 						}
-					}
-					if (eat)
-					{
-						strcpy(message, "Ommmm, You get Simple Food 🍞");
-					}
-					else
-					{
-						strcpy(message, "Oh, The provision bag is full.");
+						if (eat)
+						{
+							strcpy(message, "Ommmm, You get Simple Food 🍞");
+						}
+						else
+						{
+							strcpy(message, "Oh, The provision bag is full.");
+						}
 					}
 					last_pos = FLOOR;
 				}
@@ -1853,8 +1878,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get 10 Daggers 🗡");
-					weapons[1] += 10;
+					if (!nightmare)
+					{
+						strcpy(message, "You get 10 Daggers 🗡");
+						weapons[1] += 10;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1866,8 +1894,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get 8 Magic Wand 🪄");
-					weapons[2] += 8;
+					if (!nightmare)
+					{
+						strcpy(message, "You get 8 Magic Wand 🪄");
+						weapons[2] += 8;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1879,8 +1910,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get 20 Noemal Arrows ➳");
-					weapons[3] += 20;
+					if (!nightmare)
+					{
+						strcpy(message, "You get 20 Noemal Arrows ➳");
+						weapons[3] += 20;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1892,8 +1926,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get Sward ⚔");
-					weapons[4] = 1;
+					if (!nightmare)
+					{
+						strcpy(message, "You get Sward ⚔");
+						weapons[4] = 1;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1905,8 +1942,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get Health potion 🩺");
-					potions[0] += 1;
+					if (!nightmare)
+					{
+						strcpy(message, "You get Health potion 🩺");
+						potions[0] += 1;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1918,8 +1958,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get Speed potion 🚀");
-					potions[1] += 1;
+					if (!nightmare)
+					{
+						strcpy(message, "You get Speed potion 🚀");
+						potions[1] += 1;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -1931,8 +1974,11 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			{
 				if (!press_g)
 				{
-					strcpy(message, "You get Damage potion 💥");
-					potions[2] += 1;
+					if (!nightmare)
+					{
+						strcpy(message, "You get Damage potion 💥");
+						potions[2] += 1;
+					}
 					last_pos = FLOOR;
 				}
 				else
@@ -2274,4 +2320,19 @@ void show_inventory()
 			return;
 		}
 	}
+}
+
+int show_nightmare(int x, int y)
+{
+	for (int i = -2; i < 3; i++)
+	{
+		for (int j = -2; j < 3; j++)
+		{
+			if (map[flooor][x + i][y + j] == PLAYER)
+			{
+				return 1;
+			}
+		}
+	}
+	return 0;
 }
