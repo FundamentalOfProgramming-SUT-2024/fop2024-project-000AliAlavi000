@@ -29,9 +29,14 @@
 #define TRAP '^'
 #define GOLD "🪙"
 #define GOLD_IN_MAP 'g'
-#define BLACK_GOLD_IN_MAP 'G'
+#define BLACK_GOLD_IN_MAP 'i'
 #define SIMPLE_FOOD "🍞"
 #define SIMPLE_FOOD_IN_MAP 'f'
+#define GREAT_FOOD "🦐"
+#define GREAT_FOOD_IN_MAP 'u'
+#define MAGICAL_FOOD "🧁"
+#define MAGICAL_FOOD_IN_MAP 'x'
+#define CORRUPT_FOOD "💀"
 #define MACE_IN_MAP 'm'
 #define MACE "⚒"	// گرز
 #define DAGGER "🗡" // خنجر
@@ -45,11 +50,16 @@
 #define HEALTH "🩺"
 #define HEALTH_IN_MAP 'h'
 #define SPEED "🚀"
-#define SPEED_IN_MAP 'S'
+#define SPEED_IN_MAP 'y'
 #define DAMAGE "💥"
 #define DAMAGE_IN_MAP 'M'
 #define FINISH_GAME "🏆"
-#define FINISH_GAME_IN_MAP 'F'
+#define FINISH_GAME_IN_MAP 'z'
+#define MONSTER_DEAMON 'D'
+#define MONSTER_FIRE_BREATHING 'F'
+#define MONSTER_GIANT 'G'
+#define MONSTER_SNAKE 'S'
+#define MONSTER_UNDEAD 'U'
 #define FULLNESS_MAX 50
 #define WEAPONS_COUNT 5
 #define POTIONS_COUNT 3
@@ -82,6 +92,13 @@ typedef struct
 	int visited;
 } Stair;
 
+typedef struct
+{
+	char name;
+	int health;
+	Cell cell;
+} Monster;
+
 struct User
 {
 	char username[50];
@@ -93,8 +110,10 @@ struct User
 
 char map[FLOORS][WIDTH][HEIGHT] = {0};
 Room rooms[FLOORS * ROOMS_PER_FLOOR];
+Monster monsters[FLOORS * ROOMS_PER_FLOOR * 5] = {0};
 int stairs[FLOORS][WIDTH][HEIGHT];
-int foods[5] = {0, 0, 0, 0, 0}; // 1:simple food
+int foods[5] = {0, 0, 0, 0, 0};		 // 1:simple 2:great 3:magical 4:corrupt
+int foods_time[5] = {0, 0, 0, 0, 0}; // 1:simple 2:great 3:magical 4:corrupt
 int fullness = FULLNESS_MAX + 5;
 int weapons[5] = {0, 0, 0, 0, 0};						// MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
 char weapons_icons[5][5] = {"⚒", "🗡", "🪄", "➳", "⚔"}; // MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
@@ -103,6 +122,8 @@ char *weapons_names[WEAPONS_COUNT] = {"Mace", "Dagger", "Magic Wand", "Normal Ar
 int potions[3] = {0, 0, 0};					   // HEALTH SPEED DAMAGE
 char potions_icons[3][5] = {"🩺", "🚀", "💥"}; // HEALTH SPEED DAMAGE
 char *potions_names[POTIONS_COUNT] = {"Health Potion", "Speed Potion", "Damage Potion"};
+int power = 0;
+int speed = 0;
 
 void empty_username();
 void add_new_user(const char *message);
@@ -134,9 +155,10 @@ Cell get_empty_cell(Room room);
 int get_room(Cell c);
 int show_stair(int x, int y);
 int evey_rooms_in_this_floor_visited(int flooor);
-void eat_food();
+void eat_food(char *message);
 void show_inventory();
 int show_nightmare(int x, int y);
+void manage_foods();
 
 int main()
 {
@@ -1114,9 +1136,9 @@ void generate_map()
 
 				if (kind == 0 && floor == FLOORS - 1)
 					new_room.kind = 1;
-				else if (kind < 3)
+				else if (kind < 4)
 					new_room.kind = 2;
-				else if (kind < 5)
+				else if (kind < 6)
 					new_room.kind = 3;
 
 				if (floor == FLOORS - 1 && i == ROOMS_PER_WIDTH - 1 && j == ROOMS_PER_HEIGHT - 1)
@@ -1150,13 +1172,38 @@ void generate_map()
 						map[floor][new_room.x][new_room.y + new_room.height - 1] = '_';
 					}
 				}
-				
-				if (new_room.kind ==  1)
+
+				if (new_room.kind == 1)
 				{
 					Cell t = get_empty_cell(new_room);
 					map[floor][t.y][t.x] = FINISH_GAME_IN_MAP;
 				}
-				
+			}
+		}
+		connect_rooms(floor);
+	}
+
+	Cell c = get_empty_cell(rooms[0]);
+	map[0][c.y][c.x] = PLAYER;
+
+	int sward_room = rand() % (ROOMS_PER_FLOOR);
+	Cell stair = get_empty_cell(rooms[0]);
+	Cell sward = get_empty_cell(rooms[sward_room]);
+
+	for (int i = 0; i < FLOORS; i++)
+	{
+		map[i][stair.y][stair.x] = STAIR;
+	}
+	map[sward.flooor][sward.y][sward.x] = SWARD_IN_MAP;
+	weapons[0] = 1;
+
+	for (int floor = 0; floor < FLOORS; floor++)
+	{
+		for (int i = 0; i < ROOMS_PER_WIDTH; i++)
+		{
+			for (int j = 0; j < ROOMS_PER_HEIGHT; j++)
+			{
+				Room new_room = rooms[floor * ROOMS_PER_FLOOR + i + (j * ROOMS_PER_WIDTH)];
 
 				int pillars = 1,
 					traps = 1,
@@ -1264,7 +1311,19 @@ void generate_map()
 				if (!food)
 				{
 					Cell t = get_empty_cell(new_room);
-					map[floor][t.y][t.x] = SIMPLE_FOOD_IN_MAP;
+					int r = rand() % 4;
+					if (r == 0)
+					{
+						map[floor][t.y][t.x] = MAGICAL_FOOD_IN_MAP;
+					}
+					else if (r == 1)
+					{
+						map[floor][t.y][t.x] = GREAT_FOOD_IN_MAP;
+					}
+					else
+					{
+						map[floor][t.y][t.x] = SIMPLE_FOOD_IN_MAP;
+					}
 				}
 				if (!black_gold)
 				{
@@ -1286,18 +1345,7 @@ void generate_map()
 				}
 			}
 		}
-		connect_rooms(floor);
 	}
-	int sward_room = rand() % (ROOMS_PER_FLOOR);
-	Cell stair = get_empty_cell(rooms[0]);
-	Cell sward = get_empty_cell(rooms[sward_room]);
-
-	for (int i = 0; i < FLOORS; i++)
-	{
-		map[i][stair.y][stair.x] = STAIR;
-	}
-	map[sward.flooor][sward.y][sward.x] = SWARD_IN_MAP;
-	weapons[0] = 1;
 }
 
 int contains(int num, int nums[], int size)
@@ -1484,11 +1532,11 @@ void print_map(char message[], int gold, int hp)
 	{
 		if (LINES % 2 == 0)
 		{
-			move(LINES / 2 - 3 + i, 1);
+			move(LINES / 2 - 3 + i, 3);
 		}
 		else
 		{
-			move((LINES + 1) / 2 - 3 + i, 1);
+			move((LINES + 1) / 2 - 3 + i, 3);
 		}
 		switch (foods[i])
 		{
@@ -1497,6 +1545,15 @@ void print_map(char message[], int gold, int hp)
 			break;
 
 		case 1:
+			printw("%s", SIMPLE_FOOD);
+			break;
+		case 2:
+			printw("%s", GREAT_FOOD);
+			break;
+		case 3:
+			printw("%s", MAGICAL_FOOD);
+			break;
+		case 4:
 			printw("%s", SIMPLE_FOOD);
 			break;
 
@@ -1581,6 +1638,16 @@ void print_map(char message[], int gold, int hp)
 					mvprintw(i + start_x, j + start_y, "%s", SIMPLE_FOOD);
 					j++;
 				}
+				else if (map[flooor][i][j] == GREAT_FOOD_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", GREAT_FOOD);
+					j++;
+				}
+				else if (map[flooor][i][j] == MAGICAL_FOOD_IN_MAP && !stairs[flooor][i][j])
+				{
+					mvprintw(i + start_x, j + start_y, "%s", MAGICAL_FOOD);
+					j++;
+				}
 				else if (map[flooor][i][j] == GOLD_IN_MAP && !stairs[flooor][i][j])
 				{
 					attron(COLOR_PAIR(4));
@@ -1651,7 +1718,7 @@ void print_map(char message[], int gold, int hp)
 	}
 
 	move(LINES - 1, 0);
-	printw("Floor: %d\tHP: %d\tGold: %d", flooor + 1, hp, gold);
+	printw("Floor: %d\tHP: %d\tGold: %d\tSpeed: %d\tPower: %d", flooor + 1, hp, gold, speed, power);
 	refresh();
 }
 
@@ -1693,7 +1760,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 	}
 	else if (direction == 'E' || direction == 'e')
 	{
-		eat_food();
+		eat_food(message);
 		return;
 	}
 	else if (direction == 'I' || direction == 'i')
@@ -1786,12 +1853,23 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 		}
 
 		char next_cell = map[flooor][new_y][new_x];
-		if (next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR || next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP || next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP || next_cell == DAGGER_IN_MAP || next_cell == MAGIC_WAND_IN_MAP || next_cell == NORMAL_ARROW_IN_MAP || next_cell == SWARD_IN_MAP || next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP || next_cell == FINISH_GAME_IN_MAP)
+		if (next_cell == MAGICAL_FOOD_IN_MAP || next_cell == GREAT_FOOD_IN_MAP ||
+			next_cell == FLOOR || next_cell == DOOR || next_cell == CORRIDOR ||
+			next_cell == STAIR || next_cell == TRAP || next_cell == GOLD_IN_MAP ||
+			next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP ||
+			next_cell == DAGGER_IN_MAP || next_cell == MAGIC_WAND_IN_MAP ||
+			next_cell == NORMAL_ARROW_IN_MAP || next_cell == SWARD_IN_MAP ||
+			next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP ||
+			next_cell == FINISH_GAME_IN_MAP)
 		{
+			manage_foods();
 			fullness--;
-			if (!fullness)
+			if (fullness == 1)
 			{
 				strcpy(message, "You are very hungry 😢");
+			}
+			else if (!fullness)
+			{
 				*hp -= 5;
 				fullness = FULLNESS_MAX + 1;
 			}
@@ -1864,12 +1942,79 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 							{
 								eat = 1;
 								foods[i] = 1;
+								foods_time[i] = 0;
 								break;
 							}
 						}
 						if (eat)
 						{
 							strcpy(message, "Ommmm, You get Simple Food 🍞");
+						}
+						else
+						{
+							strcpy(message, "Oh, The provision bag is full.");
+						}
+					}
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == MAGICAL_FOOD_IN_MAP)
+			{
+				if (!press_g)
+				{
+					if (!nightmare)
+					{
+						int eat = 0;
+						for (int i = 0; i < 5; i++)
+						{
+							if (!foods[i])
+							{
+								eat = 1;
+								foods[i] = 3;
+								foods_time[i] = 0;
+								break;
+							}
+						}
+						if (eat)
+						{
+							strcpy(message, "Ommmm, You get Magical Food 🧁🧙‍♀️");
+						}
+						else
+						{
+							strcpy(message, "Oh, The provision bag is full.");
+						}
+					}
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == GREAT_FOOD_IN_MAP)
+			{
+				if (!press_g)
+				{
+					if (!nightmare)
+					{
+						int eat = 0;
+						for (int i = 0; i < 5; i++)
+						{
+							if (!foods[i])
+							{
+								eat = 1;
+								foods[i] = 2;
+								foods_time[i] = 0;
+								break;
+							}
+						}
+						if (eat)
+						{
+							strcpy(message, "Ommmm, You get Great Food 🦐🍴");
 						}
 						else
 						{
@@ -2031,15 +2176,27 @@ void start_playing()
 	flooor = 0;
 	generate_map();
 
+	every_thing_visible = 0;
 	int gold = 0;  // طلا
 	int armor = 0; // زره
 	int expp = 0;  // تجربه
 	int hp = 100;  // جان
 
-	Cell c = get_empty_cell(rooms[0]);
-	int px = c.x, py = c.y; // موقعیت اولیه بازیکن
+	int px, py;
+
+	for (int i = 0; i < WIDTH; i++)
+	{
+		for (int j = 0; j < HEIGHT; j++)
+		{
+			if (map[flooor][j][i] == PLAYER)
+			{
+				px = i;
+				py = j;
+			}
+		}
+	}
+
 	rooms[0].visited = 1;
-	map[0][py][px] = PLAYER;
 
 	print_map("Hello...", gold, hp);
 
@@ -2181,7 +2338,7 @@ int evey_rooms_in_this_floor_visited(int flooor)
 	return visited;
 }
 
-void eat_food()
+void eat_food(char *message)
 {
 	clear();
 	refresh();						// صفحه را پاک می‌کنیم
@@ -2218,6 +2375,19 @@ void eat_food()
 			printw("%s", SIMPLE_FOOD);
 			break;
 
+		case 2:
+			printw("%s", GREAT_FOOD);
+			break;
+
+		case 3:
+			printw("%s", MAGICAL_FOOD);
+			break;
+
+		case 4:
+			printw("%s", SIMPLE_FOOD);
+			strcpy(message, "Oh, Your food was corrupt");
+			break;
+
 		default:
 			break;
 		}
@@ -2233,18 +2403,33 @@ void eat_food()
 		int choice = getch() - '0'; // ورودی عددی برای انتخاب غذا
 		if (choice >= 1 && choice <= 5)
 		{
-			// 4. به‌روزرسانی میزان گرسنگی پس از خوردن غذا
-			if (foods[choice - 1] == 1) // اگر غذا وجود داشته باشد
+			if (foods[choice - 1] == 1)
 			{
 				foods[choice - 1] = 0;
-				fullness += 40; // افزایش گرسنگی با خوردن غذا ساده
-			}
-
-			// مطمئن شویم که میزان سیری از حد مجاز بیشتر نشود
-			if (fullness > FULLNESS_MAX + 5)
-			{
 				fullness = FULLNESS_MAX + 5;
 			}
+			else if (foods[choice - 1] == 2)
+			{
+				foods[choice - 1] = 0;
+				fullness = FULLNESS_MAX + 5;
+				power += 5;
+			}
+			else if (foods[choice - 1] == 3)
+			{
+				foods[choice - 1] = 0;
+				fullness = FULLNESS_MAX + 5;
+				speed += 5;
+			}
+			else
+			{
+				foods[choice - 1] = 0;
+				fullness -= 6;
+				if (fullness < 0)
+				{
+					fullness = 0;
+				}
+			}
+			foods_time[choice - 1] = 0;
 			break;
 		}
 		if (choice == 'q' - '0' || choice == 'Q' - '0')
@@ -2353,4 +2538,24 @@ int show_nightmare(int x, int y)
 		}
 	}
 	return 0;
+}
+
+void manage_foods()
+{
+	for (int i = 0; i < 5; i++)
+	{
+		foods_time[i]++;
+		if (foods_time[i] > 2 * FULLNESS_MAX)
+		{
+			foods_time[i] = 0;
+			if (foods[i] == 2 || foods[i] == 3)
+			{
+				foods[i] = 1;
+			}
+			else if (foods[i] == 1)
+			{
+				foods[i] = 4;
+			}
+		}
+	}
 }
