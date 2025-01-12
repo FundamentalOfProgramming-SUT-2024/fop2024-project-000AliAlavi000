@@ -119,6 +119,8 @@ int weapons[5] = {0, 0, 0, 0, 0};						// MACE DAGGER MAGIC_WAND NORMAL_ARROW SW
 char weapons_icons[5][5] = {"⚒", "🗡", "🪄", "➳", "⚔"}; // MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
 int current_weapon = 0;
 char *weapons_names[WEAPONS_COUNT] = {"Mace", "Dagger", "Magic Wand", "Normal Arrow", "Sword"};
+int weapon_range[WEAPONS_COUNT] = {1, 5, 10, 5, 1}; // برد سلاح‌ها
+int weapon_power[WEAPONS_COUNT] = {5, 12, 15, 5, 10}; // قدرت سلاح‌ها
 int potions[3] = {0, 0, 0};					   // HEALTH SPEED DAMAGE
 char potions_icons[3][5] = {"🩺", "🚀", "💥"}; // HEALTH SPEED DAMAGE
 char *potions_names[POTIONS_COUNT] = {"Health Potion", "Speed Potion", "Damage Potion"};
@@ -2512,38 +2514,55 @@ void show_inventory()
 	keypad(stdscr, TRUE);
 	curs_set(0);
 
+	start_color();
+	init_pair(1, COLOR_YELLOW, COLOR_BLACK);
+
 	clear();
 	refresh();
 
-	int selected_weapon = current_weapon;
+	int selected_potion = 0;
 	int ch;
 
-	// رسم جدول اولیه
 	mvprintw(1, (COLS - 20) / 2, "Your Inventory");
-	mvprintw(13, (COLS - 50) / 2, "Use arrow keys to navigate, Enter to select, Q to quit");
+	mvprintw(15, (COLS - 60) / 2, "Press A-E to select weapon, arrow keys for potions, Q to quit");
 
 	while (1)
 	{
-		for (int i = 0; i < WEAPONS_COUNT; i++)
-		{
-			mvprintw(3 + i, (COLS - 30) / 2, "                                                     ");
-			if (i == selected_weapon)
-			{
-				attron(A_REVERSE); // انتخاب سلاح فعلی
-			}
-			mvprintw(3 + i, (COLS - 30) / 2, "%s %s (%d)", weapons_icons[i], weapons_names[i], weapons[i]);
-			if (i == selected_weapon)
-			{
-				attroff(A_REVERSE);
-			}
-		}
+		// گروه اول: سلاح‌های 0 و 4
+		attron(current_weapon == 0 ? COLOR_PAIR(1) : A_NORMAL);
+		mvprintw(3, (COLS - 50) / 2, "[A] %-5s %s (%d) Power: %-3d Range: %-3d", weapons_icons[0], weapons_names[0], weapons[0], weapon_power[0], weapon_range[0]);
+		attroff(current_weapon == 0 ? COLOR_PAIR(1) : A_NORMAL);
 
-		// به‌روزرسانی معجون‌ها
+		attron(current_weapon == 4 ? COLOR_PAIR(1) : A_NORMAL);
+		mvprintw(4, (COLS - 50) / 2, "[E] %-5s %s (%d) Power: %-3d Range: %-3d", weapons_icons[4], weapons_names[4], weapons[4], weapon_power[4], weapon_range[4]);
+		attroff(current_weapon == 4 ? COLOR_PAIR(1) : A_NORMAL);
+
+		// فاصله بین گروه‌ها
+		mvprintw(5, (COLS - 30) / 2, "--------------------------");
+
+		// گروه دوم: سلاح‌های 1، 2، 3
+		attron(current_weapon == 1 ? COLOR_PAIR(1) : A_NORMAL);
+		mvprintw(6, (COLS - 50) / 2, "[B] %-5s %s (%d) Power: %-3d Range: %-3d", weapons_icons[1], weapons_names[1], weapons[1], weapon_power[1], weapon_range[1]);
+		attroff(current_weapon == 1 ? COLOR_PAIR(1) : A_NORMAL);
+
+		attron(current_weapon == 2 ? COLOR_PAIR(1) : A_NORMAL);
+		mvprintw(7, (COLS - 50) / 2, "[C] %-5s %s (%d) Power: %-3d Range: %-3d", weapons_icons[2], weapons_names[2], weapons[2], weapon_power[2], weapon_range[2]);
+		attroff(current_weapon == 2 ? COLOR_PAIR(1) : A_NORMAL);
+
+		attron(current_weapon == 3 ? COLOR_PAIR(1) : A_NORMAL);
+		mvprintw(8, (COLS - 50) / 2, "[D] %-5s %s (%d) Power: %-3d Range: %-3d", weapons_icons[3], weapons_names[3], weapons[3], weapon_power[3], weapon_range[3]);
+		attroff(current_weapon == 3 ? COLOR_PAIR(1) : A_NORMAL);
+		// فاصله بین گروه‌ها
+		mvprintw(9, (COLS - 30) / 2, "--------------------------");
+
+		// نمایش معجون‌ها
 		for (int i = 0; i < POTIONS_COUNT; i++)
 		{
-			// پاک کردن خط قبل از نوشتن
-			mvprintw(9 + i, (COLS - 30) / 2, "                          ");
-			mvprintw(9 + i, (COLS - 30) / 2, "%s %s (%d)", potions_icons[i], potions_names[i], potions[i]);
+			if (i == selected_potion)
+				attron(A_REVERSE);
+			mvprintw(10 + i, (COLS - 30) / 2, "%s %s (%d)", potions_icons[i], potions_names[i], potions[i]);
+			if (i == selected_potion)
+				attroff(A_REVERSE);
 		}
 
 		// به‌روزرسانی صفحه
@@ -2554,25 +2573,37 @@ void show_inventory()
 		switch (ch)
 		{
 		case KEY_UP:
-			if (selected_weapon > 0)
-				selected_weapon--;
+			if (selected_potion > 0)
+				selected_potion--;
 			break;
 		case KEY_DOWN:
-			if (selected_weapon < WEAPONS_COUNT - 1)
-				selected_weapon++;
+			if (selected_potion < POTIONS_COUNT - 1)
+				selected_potion++;
 			break;
-		case '\n': // Enter key
-			if (selected_weapon != current_weapon)
-			{
-				mvprintw(15, (COLS - 50) / 2, "                                                       ");
-				mvprintw(15, (COLS - 50) / 2, "You put down %s and picked up %s", weapons_names[current_weapon], weapons_names[selected_weapon]);
-				weapons[current_weapon]--;
-				weapons[selected_weapon]++;
-				current_weapon = selected_weapon;
-				refresh();
-				getch();
-			}
+
+		// انتخاب سلاح‌ها با کلیدهای خاص
+		case 'a':
+		case 'A':
+			current_weapon = 0;
 			break;
+		case 'b':
+		case 'B':
+			current_weapon = 1;
+			break;
+		case 'c':
+		case 'C':
+			current_weapon = 2;
+			break;
+		case 'd':
+		case 'D':
+			current_weapon = 3;
+			break;
+		case 'e':
+		case 'E':
+			current_weapon = 4;
+			break;
+
+		// خروج
 		case 'q':
 		case 'Q':
 			endwin();
@@ -2694,7 +2725,7 @@ void finish_game(int *hp, int *gold)
 
 	if (*hp <= 0)
 	{
-		attron(COLOR_PAIR(1)); 
+		attron(COLOR_PAIR(1));
 		center_text(3, "Game Over! You lost...");
 		score = *gold / 100;
 		center_text(5, "Your Score:");
@@ -2712,10 +2743,10 @@ void finish_game(int *hp, int *gold)
 		mvprintw(6, (COLS / 2) - 2, "%d", score);
 		attroff(COLOR_PAIR(2));
 		refresh();
-		draw_happy_animation(); 
+		draw_happy_animation();
 	}
 
-	attron(COLOR_PAIR(3)); 
+	attron(COLOR_PAIR(3));
 	center_text(LINES - 3, "Press Q to exit...");
 	attroff(COLOR_PAIR(3));
 
