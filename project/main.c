@@ -159,6 +159,10 @@ void eat_food(char *message);
 void show_inventory();
 int show_nightmare(int x, int y);
 void manage_foods();
+void finish_game(int *hp, int *gold);
+void draw_sad_animation();
+void draw_happy_animation();
+void center_text(int y, const char *text);
 
 int main()
 {
@@ -1215,7 +1219,12 @@ void generate_map()
 					normal_arrow = 1,
 					health = 1,
 					speed = 1,
-					damage = 1;
+					damage = 1,
+					deamon = 1,
+					fire_breathing = 1,
+					giant = 1,
+					snake = 1,
+					undead = 1;
 				if (new_room.kind == 1)
 				{
 					pillars = rand() % 4;
@@ -1227,6 +1236,10 @@ void generate_map()
 					health = rand() % (8 + level);
 					speed = rand() % (8 + level);
 					damage = rand() % (8 + level);
+					deamon = rand() % (4 - level);
+					fire_breathing = rand() % (5 - level);
+					giant = rand() % (6 - level);
+					undead = rand() % (7 - level);
 				}
 				else if (new_room.kind == 2)
 				{
@@ -1267,6 +1280,10 @@ void generate_map()
 					health = rand() % (4 + level);
 					speed = rand() % (4 + level);
 					damage = rand() % (4 + level);
+					deamon = rand() % (7 - level);
+					fire_breathing = rand() % (8 - level);
+					giant = rand() % (9 - level);
+					undead = rand() % (10 - level);
 				}
 
 				if (new_room.kind == 1)
@@ -1278,6 +1295,31 @@ void generate_map()
 					}
 				}
 
+				if (!undead)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = MONSTER_UNDEAD;
+				}
+				if (!deamon)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = MONSTER_DEAMON;
+				}
+				if (!fire_breathing)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = MONSTER_FIRE_BREATHING;
+				}
+				if (!giant)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = MONSTER_GIANT;
+				}
+				if (!snake)
+				{
+					Cell t = get_empty_cell(new_room);
+					map[floor][t.y][t.x] = MONSTER_SNAKE;
+				}
 				if (!traps)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1862,6 +1904,13 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP ||
 			next_cell == FINISH_GAME_IN_MAP)
 		{
+			if (fullness >= FULLNESS_MAX)
+			{
+				*hp += 3;
+				if (*hp > 100)
+					*hp = 100;
+			}
+
 			manage_foods();
 			fullness--;
 			if (fullness == 1)
@@ -1870,7 +1919,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			}
 			else if (!fullness)
 			{
-				*hp -= 5;
+				*hp -= 1000;
 				fullness = FULLNESS_MAX + 1;
 			}
 
@@ -2206,6 +2255,11 @@ void start_playing()
 
 	while (1)
 	{
+		if (hp <= 0)
+		{
+			finish_game(&hp, &gold);
+			break;
+		}
 		ch = getch();
 		if (ch != 'q' && ch != 'Q' && last_pos != FINISH_GAME_IN_MAP)
 		{
@@ -2218,13 +2272,19 @@ void start_playing()
 			{
 				message[i] = ' ';
 			}
-
+			int finish = 1;
 			strcpy(message, "Save Game? (Y/N/Cancel)?");
 			move(0, 0);
 			print_map(message, gold, hp);
-			int finish = 0;
+
 			while (1)
 			{
+				if (hp <= 0)
+				{
+					finish_game(&hp, &gold);
+					finish = 1;
+				}
+
 				ch = getch();
 				if (ch == 'y' || ch == 'Y')
 				{
@@ -2464,10 +2524,8 @@ void show_inventory()
 
 	while (1)
 	{
-		// به‌روزرسانی سلاح‌ها
 		for (int i = 0; i < WEAPONS_COUNT; i++)
 		{
-			// پاک کردن خط قبل از نوشتن
 			mvprintw(3 + i, (COLS - 30) / 2, "                                                     ");
 			if (i == selected_weapon)
 			{
@@ -2558,4 +2616,118 @@ void manage_foods()
 			}
 		}
 	}
+}
+
+void center_text(int y, const char *text)
+{
+	int x = (COLS - strlen(text)) / 2;
+	mvprintw(y, x, "%s", text);
+}
+
+void init_colors()
+{
+	start_color();
+	init_pair(1, COLOR_RED, COLOR_BLACK);	 // رنگ قرمز
+	init_pair(2, COLOR_GREEN, COLOR_BLACK);	 // رنگ سبز
+	init_pair(3, COLOR_YELLOW, COLOR_BLACK); // رنگ زرد
+}
+
+void draw_happy_animation()
+{
+	const char *face = "   \\(^_^)/   ";
+	const char *hand_up = "    /|\\    ";
+	const char *hand_down = "    \\|/    ";
+
+	for (int i = 0; i < 5; i++)
+	{
+		center_text(8, face);
+		center_text(9, (i % 2 == 0) ? hand_up : hand_down);
+		refresh();
+		usleep(300000); // مکث 300 میلی‌ثانیه
+	}
+}
+
+void draw_sad_animation()
+{
+	const char *face = "   (ಥ_ಥ)   ";
+	const char *tear1 = "     💧    ";
+	const char *tear2 = "    💧💧   ";
+	const char *tear3 = "   💧💧💧  ";
+
+	for (int i = 0; i < 8; i++)
+	{
+		center_text(8, face);
+		switch (i % 4)
+		{
+		case 0:
+			center_text(10, tear1);
+			break;
+		case 1:
+			center_text(11, tear2);
+			break;
+		case 2:
+			center_text(12, tear3);
+			break;
+		case 3:
+			center_text(10, "                               ");
+			center_text(11, "                               ");
+			center_text(12, "                               ");
+			center_text(8, face);
+			break;
+		}
+		refresh();
+		usleep(300000); // مکث 300 میلی‌ثانیه
+	}
+}
+
+void finish_game(int *hp, int *gold)
+{
+	initscr();
+	cbreak();
+	noecho();
+	curs_set(0);
+	init_colors();
+
+	clear();
+	refresh();
+	int score = 0;
+
+	if (*hp <= 0)
+	{
+		attron(COLOR_PAIR(1)); 
+		center_text(3, "Game Over! You lost...");
+		score = *gold / 100;
+		center_text(5, "Your Score:");
+		mvprintw(6, (COLS / 2) - 2, "%d", score);
+		attroff(COLOR_PAIR(1));
+		refresh();
+		draw_sad_animation();
+	}
+	else
+	{
+		attron(COLOR_PAIR(2));
+		center_text(3, "Congratulations! You won!");
+		score = *hp + (*gold * 10);
+		center_text(5, "Your Score:");
+		mvprintw(6, (COLS / 2) - 2, "%d", score);
+		attroff(COLOR_PAIR(2));
+		refresh();
+		draw_happy_animation(); 
+	}
+
+	attron(COLOR_PAIR(3)); 
+	center_text(LINES - 3, "Press Q to exit...");
+	attroff(COLOR_PAIR(3));
+
+	char ch;
+	while (1)
+	{
+		ch = getch();
+		if (ch == 'q' || ch == 'Q')
+		{
+			break;
+		}
+	}
+
+	endwin();
 }
