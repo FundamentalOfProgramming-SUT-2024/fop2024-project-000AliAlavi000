@@ -98,6 +98,7 @@ typedef struct
 	int health;
 	Cell cell;
 	int moves;
+	char last_pos;
 } Monster;
 
 struct User
@@ -1319,6 +1320,7 @@ void generate_map()
 
 				Monster m;
 				m.moves = 0;
+				snake = 0;
 				if (!undead)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1382,6 +1384,7 @@ void generate_map()
 					m.cell = t;
 					m.health = 20;
 					m.name = MONSTER_SNAKE;
+					m.last_pos = FLOOR;
 					add_monster(m);
 				}
 				if (!traps)
@@ -2849,7 +2852,6 @@ void manage_monsters(Cell c)
 	{
 		if (monsters[i].health > 0 && room == get_room(monsters[i].cell))
 		{
-			begin = 1;
 			int monster_x = monsters[i].cell.x;
 			int monster_y = monsters[i].cell.y;
 
@@ -2922,10 +2924,9 @@ void manage_monsters(Cell c)
 			}
 			else if (monsters[i].name == MONSTER_SNAKE)
 			{
-				if (monsters[i].moves <= 2)
+				if (!monsters[i].moves)
 				{
-					monsters[i].moves++;
-					move = 1;
+					monsters[i].moves = 1;
 				}
 			}
 			else if (monsters[i].name == MONSTER_UNDEAD)
@@ -2959,7 +2960,7 @@ void manage_monsters(Cell c)
 					monster_x = m_x, monster_y = m_y;
 				}
 			}
-			
+
 			if (abs(monster_x - c.x) <= 1 && abs(monster_y - c.y) <= 1)
 			{
 				enum MonsterPower monster_power;
@@ -2988,6 +2989,47 @@ void manage_monsters(Cell c)
 				default:
 					break;
 				}
+				hp -= monster_power;
+				char message[200];
+				sprintf(message, "You lost %d points in the battle with the %c", monster_power, monsters[i].name);
+				move(0, 0);
+				print_map(message);
+				usleep(1000000);
+				return;
+			}
+		}
+
+		if (monsters[i].health > 0 && monsters[i].moves && monsters[i].cell.flooor == flooor)
+		{
+			int monster_x = monsters[i].cell.x;
+			int monster_y = monsters[i].cell.y;
+
+			int m_x = monster_x, m_y = monster_y;
+			if (monster_x < c.x)
+				m_x++;
+			else if (monster_x > c.x)
+				m_x--;
+
+			if (monster_y < c.y)
+				m_y++;
+			else if (monster_y > c.y)
+				m_y--;
+
+			if (map[flooor][m_x][m_y] == FLOOR ||
+				map[flooor][m_x][m_y] == DOOR ||
+				map[flooor][m_x][m_y] == CORRIDOR)
+			{
+				map[flooor][monsters[i].cell.x][monsters[i].cell.y] = monsters[i].last_pos;
+				monsters[i].cell.x = m_x;
+				monsters[i].cell.y = m_y;
+				monsters[i].last_pos = map[flooor][m_x][m_y];
+				map[flooor][m_x][m_y] = monsters[i].name;
+				monster_x = m_x, monster_y = m_y;
+			}
+
+			if (abs(monster_x - c.x) <= 1 && abs(monster_y - c.y) <= 1)
+			{
+				enum MonsterPower monster_power = S;
 				hp -= monster_power;
 				char message[200];
 				sprintf(message, "You lost %d points in the battle with the %c", monster_power, monsters[i].name);
