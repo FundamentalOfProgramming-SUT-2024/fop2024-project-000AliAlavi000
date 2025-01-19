@@ -97,6 +97,7 @@ typedef struct
 	char name;
 	int health;
 	Cell cell;
+	int moves;
 } Monster;
 
 struct User
@@ -106,6 +107,15 @@ struct User
 	int golds;
 	int finish_games;
 	int time_left;
+};
+
+enum MonsterPower
+{
+	D = 2,
+	F = 4,
+	G = 6,
+	S = 8,
+	U = 12
 };
 
 char map[FLOORS][WIDTH][HEIGHT] = {0};
@@ -1307,6 +1317,7 @@ void generate_map()
 				}
 
 				Monster m;
+				m.moves = 0;
 				if (!undead)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1999,7 +2010,8 @@ void move_player(int *px, int *py, int direction, char *message)
 			map[flooor][*py][*px] = PLAYER;
 			stairs[flooor][*py][*px] = 1;
 
-			if (get_room(c) != -1)
+			// if (get_room(c) != -1)
+			if (1)
 			{
 				manage_monsters(c);
 			}
@@ -2840,15 +2852,39 @@ void manage_monsters(Cell c)
 			int monster_x = monsters[i].cell.x;
 			int monster_y = monsters[i].cell.y;
 
-			// اگر هیولا در همسایگی بازیکن باشد، ضربه بزند
 			if (abs(monster_x - c.x) <= 1 && abs(monster_y - c.y) <= 1)
 			{
-				// ضربه به بازیکن
-				hp -= 5;
-				return; // فقط یک هیولا می‌تواند در هر فریم ضربه بزند
+				enum MonsterPower monster_power;
+				switch (monsters[i].name)
+				{
+				case MONSTER_DEAMON:
+					monster_power = D;
+					break;
+				case MONSTER_FIRE_BREATHING:
+					monster_power = F;
+					break;
+				case MONSTER_GIANT:
+					monster_power = G;
+					break;
+				case MONSTER_SNAKE:
+					monster_power = S;
+					break;
+				case MONSTER_UNDEAD:
+					monster_power = U;
+					break;
+
+				default:
+					break;
+				}
+				hp -= monster_power;
+				return;
 			}
 
-			// حرکت هیولا به سمت بازیکن
+			if (monsters[i].name = MONSTER_DEAMON && monsters[i].moves <= 2)
+			{
+				monsters[i].moves++;
+			}
+
 			if (monster_x < c.x)
 				monster_x++;
 			else if (monster_x > c.x)
@@ -2859,18 +2895,12 @@ void manage_monsters(Cell c)
 			else if (monster_y > c.y)
 				monster_y--;
 
-			// بررسی اینکه آیا خانه جدید برای هیولا قابل دسترسی است
 			if (map[flooor][monster_x][monster_y] == FLOOR || map[flooor][monster_x][monster_y] == CORRIDOR)
 			{
-				// حرکت هیولا به خانه جدید
-				map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR; // خانه قبلی را خالی کنید
+				map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
 				monsters[i].cell.x = monster_x;
 				monsters[i].cell.y = monster_y;
-				map[flooor][monster_x][monster_y] = monsters[i].name; // هیولا را به خانه جدید منتقل کنید
-			}
-			else if (begin == 1)
-			{
-				break;
+				map[flooor][monster_x][monster_y] = monsters[i].name;
 			}
 		}
 	}
