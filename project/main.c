@@ -98,7 +98,6 @@ typedef struct
 	int health;
 	Cell cell;
 	int moves;
-	char last_cell;
 } Monster;
 
 struct User
@@ -1247,7 +1246,7 @@ void generate_map()
 					giant = 1,
 					snake = 1,
 					undead = 1;
-				if (new_room.kind == 1)
+				if (new_room.kind == 1) // گنج
 				{
 					pillars = rand() % 4;
 					traps = rand() % (6 - level);
@@ -1263,7 +1262,7 @@ void generate_map()
 					giant = rand() % (6 - level);
 					undead = rand() % (7 - level);
 				}
-				else if (new_room.kind == 2)
+				else if (new_room.kind == 2) // طلسم
 				{
 					pillars = rand() % 4;
 					gold = rand() % (5 + level);
@@ -1276,7 +1275,7 @@ void generate_map()
 					speed = rand() % (1 + level);
 					damage = rand() % (1 + level);
 				}
-				else if (new_room.kind == 3)
+				else if (new_room.kind == 3) // کابوس
 				{
 					pillars = rand() % 4;
 					gold = rand() % (2 + level);
@@ -1302,10 +1301,11 @@ void generate_map()
 					health = rand() % (4 + level);
 					speed = rand() % (4 + level);
 					damage = rand() % (4 + level);
-					deamon = rand() % (7 - level);
-					fire_breathing = rand() % (8 - level);
-					giant = rand() % (9 - level);
-					undead = rand() % (10 - level);
+					deamon = rand() % (5 - level);
+					fire_breathing = rand() % (6 - level);
+					giant = rand() % (7 - level);
+					undead = rand() % (8 - level);
+					snake = rand() % (7 - level);
 				}
 
 				if (new_room.kind == 1)
@@ -1319,7 +1319,6 @@ void generate_map()
 
 				Monster m;
 				m.moves = 0;
-				snake = 0;
 				if (!undead)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1383,7 +1382,6 @@ void generate_map()
 					m.cell = t;
 					m.health = 20;
 					m.name = MONSTER_SNAKE;
-					m.last_cell = FLOOR;
 					add_monster(m);
 				}
 				if (!traps)
@@ -1668,19 +1666,6 @@ void print_map(char message[])
 		default:
 			break;
 		}
-	}
-
-	for (int i = 0; i < 10; i++)
-	{
-		if (LINES % 2 == 0)
-		{
-			move(LINES / 2 - 3 + i, COLS - 12);
-		}
-		else
-		{
-			move((LINES + 1) / 2 - 3 + i, COLS - 12);
-		}
-		printw("%c%d%d", monsters[i].name, monsters[i].cell.x, monsters[i].cell.y);
 	}
 
 	for (int i = 0; i < 5; i++)
@@ -2864,41 +2849,44 @@ void manage_monsters(Cell c)
 	{
 		if (monsters[i].health > 0 && room == get_room(monsters[i].cell))
 		{
+			begin = 1;
 			int monster_x = monsters[i].cell.x;
 			int monster_y = monsters[i].cell.y;
 
 			int move = 0;
 
-			if (monsters[i].name == MONSTER_DEAMON && monsters[i].moves <= 2)
+			if (monsters[i].name == MONSTER_DEAMON && monsters[i].moves <= 4)
 			{
 				monsters[i].moves++;
 				move = 1;
 			}
 			else if (monsters[i].name == MONSTER_FIRE_BREATHING)
 			{
-				if (monsters[i].moves <= 2)
+				if (monsters[i].moves <= 4)
 				{
 					monsters[i].moves++;
 					move = 1;
 				}
 				else
 				{
+					int m_x = monster_x, m_y = monster_y;
 					if (monster_x < c.x)
-						monster_x--;
+						m_x--;
 					else if (monster_x > c.x)
-						monster_x++;
+						m_x++;
 
 					if (monster_y < c.y)
-						monster_y--;
+						m_y--;
 					else if (monster_y > c.y)
-						monster_y++;
+						m_y++;
 
-					if (map[flooor][monster_x][monster_y] == FLOOR)
+					if (map[flooor][m_x][m_y] == FLOOR)
 					{
 						map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
-						monsters[i].cell.x = monster_x;
-						monsters[i].cell.y = monster_y;
-						map[flooor][monster_x][monster_y] = monsters[i].name;
+						monsters[i].cell.x = m_x;
+						monsters[i].cell.y = m_y;
+						map[flooor][m_x][m_y] = monsters[i].name;
+						monster_x = m_x, monster_y = m_y;
 					}
 				}
 			}
@@ -2911,30 +2899,33 @@ void manage_monsters(Cell c)
 				}
 				else
 				{
+					int m_x = monster_x, m_y = monster_y;
 					if (monster_x < c.x)
-						monster_x--;
+						m_x--;
 					else if (monster_x > c.x)
-						monster_x++;
+						m_x++;
 
 					if (monster_y < c.y)
-						monster_y--;
+						m_y--;
 					else if (monster_y > c.y)
-						monster_y++;
+						m_y++;
 
-					if (map[flooor][monster_x][monster_y] == FLOOR)
+					if (map[flooor][m_x][m_y] == FLOOR)
 					{
 						map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
-						monsters[i].cell.x = monster_x;
-						monsters[i].cell.y = monster_y;
-						map[flooor][monster_x][monster_y] = monsters[i].name;
+						monsters[i].cell.x = m_x;
+						monsters[i].cell.y = m_y;
+						map[flooor][m_x][m_y] = monsters[i].name;
+						monster_x = m_x, monster_y = m_y;
 					}
 				}
 			}
 			else if (monsters[i].name == MONSTER_SNAKE)
 			{
-				if (monsters[i].moves == 0)
+				if (monsters[i].moves <= 2)
 				{
-					monsters[i].moves = 1;
+					monsters[i].moves++;
+					move = 1;
 				}
 			}
 			else if (monsters[i].name == MONSTER_UNDEAD)
@@ -2948,25 +2939,27 @@ void manage_monsters(Cell c)
 
 			if (move)
 			{
+				int m_x = monster_x, m_y = monster_y;
 				if (monster_x < c.x)
-					monster_x++;
+					m_x++;
 				else if (monster_x > c.x)
-					monster_x--;
+					m_x--;
 
 				if (monster_y < c.y)
-					monster_y++;
+					m_y++;
 				else if (monster_y > c.y)
-					monster_y--;
+					m_y--;
 
-				if (map[flooor][monster_x][monster_y] == FLOOR)
+				if (map[flooor][m_x][m_y] == FLOOR)
 				{
 					map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
-					monsters[i].cell.x = monster_x;
-					monsters[i].cell.y = monster_y;
-					map[flooor][monster_x][monster_y] = monsters[i].name;
+					monsters[i].cell.x = m_x;
+					monsters[i].cell.y = m_y;
+					map[flooor][m_x][m_y] = monsters[i].name;
+					monster_x = m_x, monster_y = m_y;
 				}
 			}
-
+			
 			if (abs(monster_x - c.x) <= 1 && abs(monster_y - c.y) <= 1)
 			{
 				enum MonsterPower monster_power;
@@ -2981,6 +2974,9 @@ void manage_monsters(Cell c)
 				case MONSTER_GIANT:
 					monster_power = G;
 					break;
+				case MONSTER_SNAKE:
+					monster_power = S;
+					break;
 				case MONSTER_UNDEAD:
 				{
 					monster_power = U;
@@ -2993,40 +2989,11 @@ void manage_monsters(Cell c)
 					break;
 				}
 				hp -= monster_power;
-				return;
-			}
-		}
-
-		if (monsters[i].health > 0 && monsters[i].name == MONSTER_SNAKE && monsters[i].moves)
-		{
-			int monster_x = monsters[i].cell.x;
-			int monster_y = monsters[i].cell.y;
-
-			if (monster_x < c.x)
-				monster_x++;
-			else if (monster_x > c.x)
-				monster_x--;
-
-			if (monster_y < c.y)
-				monster_y++;
-			else if (monster_y > c.y)
-				monster_y--;
-
-			if (map[flooor][monster_x][monster_y] == FLOOR ||
-				map[flooor][monster_x][monster_y] == DOOR ||
-				map[flooor][monster_x][monster_y] == CORRIDOR)
-			{
-				map[flooor][monsters[i].cell.x][monsters[i].cell.y] = monsters[i].last_cell;
-				monsters[i].last_cell = map[flooor][monster_x][monster_y];
-				monsters[i].cell.x = monster_x;
-				monsters[i].cell.y = monster_y;
-				map[flooor][monster_x][monster_y] = monsters[i].name;
-			}
-
-			if (abs(monster_x - c.x) <= 1 && abs(monster_y - c.y) <= 1)
-			{
-				enum MonsterPower monster_power = S;
-				hp -= monster_power;
+				char message[200];
+				sprintf(message, "You lost %d points in the battle with the %c", monster_power, monsters[i].name);
+				move(0, 0);
+				print_map(message);
+				usleep(1000000);
 				return;
 			}
 		}
