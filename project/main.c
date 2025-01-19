@@ -179,7 +179,7 @@ void draw_happy_animation();
 void center_text(int y, const char *text);
 void manage_monsters(Cell c);
 void add_monster(Monster m);
-
+void reset_monsters_moves_in_room(Cell cell);
 int main()
 {
 	setlocale(LC_ALL, "");
@@ -1989,7 +1989,7 @@ void move_player(int *px, int *py, int direction, char *message)
 			}
 			else if (!fullness)
 			{
-				hp -= 1000;
+				hp -= 10;
 				fullness = FULLNESS_MAX + 1;
 			}
 
@@ -2010,11 +2010,11 @@ void move_player(int *px, int *py, int direction, char *message)
 			map[flooor][*py][*px] = PLAYER;
 			stairs[flooor][*py][*px] = 1;
 
-			// if (get_room(c) != -1)
-			if (1)
+			if (get_room(c) != -1 && get_room(c) != get_room(current_cell))
 			{
-				manage_monsters(c);
+				reset_monsters_moves_in_room(c);
 			}
+			manage_monsters(c);
 
 			int room_index = get_room(c);
 			int nightmare = 0;
@@ -2870,8 +2870,12 @@ void manage_monsters(Cell c)
 					monster_power = S;
 					break;
 				case MONSTER_UNDEAD:
+				{
 					monster_power = U;
+					if (monsters[i].moves == 0)
+						monsters[i].moves = 1;
 					break;
+				}
 
 				default:
 					break;
@@ -2880,27 +2884,105 @@ void manage_monsters(Cell c)
 				return;
 			}
 
-			if (monsters[i].name = MONSTER_DEAMON && monsters[i].moves <= 2)
+			int move = 0;
+
+			if (monsters[i].name == MONSTER_DEAMON && monsters[i].moves <= 2)
 			{
 				monsters[i].moves++;
+				move = 1;
+			}
+			else if (monsters[i].name == MONSTER_FIRE_BREATHING)
+			{
+				if (monsters[i].moves <= 2)
+				{
+					monsters[i].moves++;
+					move = 1;
+				}
+				else
+				{
+					if (monster_x < c.x)
+						monster_x--;
+					else if (monster_x > c.x)
+						monster_x++;
+
+					if (monster_y < c.y)
+						monster_y--;
+					else if (monster_y > c.y)
+						monster_y++;
+
+					if (map[flooor][monster_x][monster_y] == FLOOR)
+					{
+						map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
+						monsters[i].cell.x = monster_x;
+						monsters[i].cell.y = monster_y;
+						map[flooor][monster_x][monster_y] = monsters[i].name;
+					}
+				}
+			}
+			else if (monsters[i].name == MONSTER_GIANT)
+			{
+				if (monsters[i].moves <= 4)
+				{
+					monsters[i].moves++;
+					move = 1;
+				}
+				else
+				{
+					if (monster_x < c.x)
+						monster_x--;
+					else if (monster_x > c.x)
+						monster_x++;
+
+					if (monster_y < c.y)
+						monster_y--;
+					else if (monster_y > c.y)
+						monster_y++;
+
+					if (map[flooor][monster_x][monster_y] == FLOOR)
+					{
+						map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
+						monsters[i].cell.x = monster_x;
+						monsters[i].cell.y = monster_y;
+						map[flooor][monster_x][monster_y] = monsters[i].name;
+					}
+				}
+			}
+			else if (monsters[i].name == MONSTER_SNAKE)
+			{
+				if (monsters[i].moves <= 2)
+				{
+					monsters[i].moves++;
+					move = 1;
+				}
+			}
+			else if (monsters[i].name == MONSTER_UNDEAD)
+			{
+				if (monsters[i].moves <= 5 && monsters[i].moves > 0)
+				{
+					monsters[i].moves++;
+					move = 1;
+				}
 			}
 
-			if (monster_x < c.x)
-				monster_x++;
-			else if (monster_x > c.x)
-				monster_x--;
-
-			if (monster_y < c.y)
-				monster_y++;
-			else if (monster_y > c.y)
-				monster_y--;
-
-			if (map[flooor][monster_x][monster_y] == FLOOR || map[flooor][monster_x][monster_y] == CORRIDOR)
+			if (move)
 			{
-				map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
-				monsters[i].cell.x = monster_x;
-				monsters[i].cell.y = monster_y;
-				map[flooor][monster_x][monster_y] = monsters[i].name;
+				if (monster_x < c.x)
+					monster_x++;
+				else if (monster_x > c.x)
+					monster_x--;
+
+				if (monster_y < c.y)
+					monster_y++;
+				else if (monster_y > c.y)
+					monster_y--;
+
+				if (map[flooor][monster_x][monster_y] == FLOOR)
+				{
+					map[flooor][monsters[i].cell.x][monsters[i].cell.y] = FLOOR;
+					monsters[i].cell.x = monster_x;
+					monsters[i].cell.y = monster_y;
+					map[flooor][monster_x][monster_y] = monsters[i].name;
+				}
 			}
 		}
 	}
@@ -2911,4 +2993,27 @@ void add_monster(Monster m)
 	static int i = 0;
 	monsters[i] = m;
 	i++;
+}
+
+void reset_monsters_moves_in_room(Cell cell)
+{
+	int room_index = get_room(cell);
+
+	if (room_index == -1)
+	{
+		return;
+	}
+
+	for (int i = 0; i < FLOORS * ROOMS_PER_FLOOR * 5; i++)
+	{
+		if (monsters[i].health > 0)
+		{
+			int monster_room_index = get_room(monsters[i].cell);
+
+			if (monster_room_index == room_index)
+			{
+				monsters[i].moves = 0;
+			}
+		}
+	}
 }
