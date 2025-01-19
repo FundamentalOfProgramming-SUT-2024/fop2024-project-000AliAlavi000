@@ -119,10 +119,10 @@ int weapons[5] = {0, 0, 0, 0, 0};						// MACE DAGGER MAGIC_WAND NORMAL_ARROW SW
 char weapons_icons[5][5] = {"⚒", "🗡", "🪄", "➳", "⚔"}; // MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
 int current_weapon = 0;
 char *weapons_names[WEAPONS_COUNT] = {"Mace", "Dagger", "Magic Wand", "Normal Arrow", "Sword"};
-int weapon_range[WEAPONS_COUNT] = {1, 5, 10, 5, 1}; // برد سلاح‌ها
+int weapon_range[WEAPONS_COUNT] = {1, 5, 10, 5, 1};	  // برد سلاح‌ها
 int weapon_power[WEAPONS_COUNT] = {5, 12, 15, 5, 10}; // قدرت سلاح‌ها
-int potions[3] = {0, 0, 0};					   // HEALTH SPEED DAMAGE
-char potions_icons[3][5] = {"🩺", "🚀", "💥"}; // HEALTH SPEED DAMAGE
+int potions[3] = {0, 0, 0};							  // HEALTH SPEED DAMAGE
+char potions_icons[3][5] = {"🩺", "🚀", "💥"};		  // HEALTH SPEED DAMAGE
 char *potions_names[POTIONS_COUNT] = {"Health Potion", "Speed Potion", "Damage Potion"};
 int power = 0;
 int speed = 0;
@@ -165,6 +165,7 @@ void finish_game(int *hp, int *gold);
 void draw_sad_animation();
 void draw_happy_animation();
 void center_text(int y, const char *text);
+void manage_monsters();
 
 int main()
 {
@@ -1836,6 +1837,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			map[flooor][*py][*px] = last_pos;
 			flooor--;
 			map[flooor][*py][*px] = PLAYER;
+			manage_monsters();
 		}
 		else if (direction == KEY_LEFT && flooor != FLOORS - 1)
 		{
@@ -1845,6 +1847,7 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 				map[flooor][*py][*px] = last_pos;
 				flooor++;
 				map[flooor][*py][*px] = PLAYER;
+				manage_monsters();
 			}
 			else
 			{
@@ -1925,6 +1928,16 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 				fullness = FULLNESS_MAX + 1;
 			}
 
+			Cell current_cell;
+			current_cell.flooor = flooor;
+			current_cell.x = *py;
+			current_cell.y = *px;
+
+			Cell c; // next cell
+			c.flooor = flooor;
+			c.x = new_y;
+			c.y = new_x;
+
 			map[flooor][*py][*px] = last_pos;
 			*px = new_x;
 			*py = new_y;
@@ -1932,10 +1945,10 @@ void move_player(int *px, int *py, int direction, char *message, int *hp, int *g
 			map[flooor][*py][*px] = PLAYER;
 			stairs[flooor][*py][*px] = 1;
 
-			Cell c;
-			c.flooor = flooor;
-			c.x = new_y;
-			c.y = new_x;
+			if (get_room(c) != -1 && get_room(c) != get_room(current_cell))
+			{
+				manage_monsters();
+			}
 
 			int room_index = get_room(c);
 			int nightmare = 0;
@@ -2761,4 +2774,13 @@ void finish_game(int *hp, int *gold)
 	}
 
 	endwin();
+}
+
+void manage_monsters()
+{
+	move(0, 0);
+	printw("                                                             ");
+	move(0, 0);
+	printw("Hello");
+	refresh();
 }
