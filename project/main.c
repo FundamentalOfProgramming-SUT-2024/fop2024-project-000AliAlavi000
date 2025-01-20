@@ -181,6 +181,10 @@ void center_text(int y, const char *text);
 void manage_monsters(Cell c);
 void add_monster(Monster m);
 void reset_monsters_moves_in_room(Cell cell);
+void manage_fire(Cell cell);
+int is_monster(char c);
+int find_monster(Cell c);
+
 int main()
 {
 	setlocale(LC_ALL, "");
@@ -1320,6 +1324,7 @@ void generate_map()
 
 				Monster m;
 				m.moves = 0;
+				m.last_pos = FLOOR;
 				snake = 0;
 				if (!undead)
 				{
@@ -1384,7 +1389,6 @@ void generate_map()
 					m.cell = t;
 					m.health = 20;
 					m.name = MONSTER_SNAKE;
-					m.last_pos = FLOOR;
 					add_monster(m);
 				}
 				if (!traps)
@@ -1842,6 +1846,14 @@ void move_player(int *px, int *py, int direction, char *message)
 	int press_f = FALSE;
 	int press_g = FALSE;
 	int counter = 0;
+
+	if (direction == ' ')
+	{
+		Cell c;
+		c.flooor = flooor, c.x = *py, c.y = *px;
+		manage_fire(c);
+		manage_monsters(c);
+	}
 
 	if (direction == 'f' || direction == 'F')
 	{
@@ -2999,7 +3011,8 @@ void manage_monsters(Cell c)
 			}
 		}
 
-		if (monsters[i].health > 0 && monsters[i].moves && monsters[i].cell.flooor == flooor)
+		if (monsters[i].health > 0 && monsters[i].moves && monsters[i].cell.flooor == flooor &&
+			monsters[i].name == MONSTER_SNAKE)
 		{
 			int monster_x = monsters[i].cell.x;
 			int monster_y = monsters[i].cell.y;
@@ -3035,7 +3048,7 @@ void manage_monsters(Cell c)
 				sprintf(message, "You lost %d points in the battle with the %c", monster_power, monsters[i].name);
 				move(0, 0);
 				print_map(message);
-				usleep(1000000);
+				usleep(500000);
 				return;
 			}
 		}
@@ -3070,4 +3083,93 @@ void reset_monsters_moves_in_room(Cell cell)
 			}
 		}
 	}
+}
+
+void manage_fire(Cell cell)
+{
+	Cell new_cell;
+	new_cell.flooor = flooor;
+	int monster_id;
+	if (current_weapon == 0 || current_weapon == 4)
+	{
+		for (int i = -1; i <= 1; i++)
+		{
+			for (int j = -1; j <= 1; j++)
+			{
+				new_cell.x = cell.x + i;
+				new_cell.y = cell.y + j;
+				if (is_monster(map[new_cell.flooor][new_cell.x][new_cell.y]))
+				{
+					monster_id = find_monster(new_cell);
+					if (monster_id == -1)
+					{
+						continue;
+					}
+
+					monsters[monster_id].health -= weapon_power[current_weapon];
+
+					clear();
+					refresh();
+					char message[200];
+					if (monsters[monster_id].health <= 0)
+					{
+						sprintf(message, "You Killed %c", monsters[monster_id].name);
+						map[new_cell.flooor][new_cell.x][new_cell.y] = monsters[monster_id].last_pos;
+						monsters[monster_id].name = '.';
+					}
+					else
+					{
+						sprintf(message, "Monster: %c, Heaalth: %d", monsters[monster_id].name, monsters[monster_id].health);
+					}
+					move(1, 0);
+					print_map(message);
+					usleep(500000);
+				}
+			}
+		}
+	}
+}
+
+int is_monster(char c)
+{
+	switch (c)
+	{
+	case MONSTER_DEAMON:
+		return TRUE;
+		break;
+
+	case MONSTER_FIRE_BREATHING:
+		return TRUE;
+		break;
+
+	case MONSTER_GIANT:
+		return TRUE;
+		break;
+
+	case MONSTER_SNAKE:
+		return TRUE;
+		break;
+
+	case MONSTER_UNDEAD:
+		return TRUE;
+		break;
+
+	default:
+		return FALSE;
+		break;
+	}
+}
+
+int find_monster(Cell c)
+{
+	for (int i = 0; i < 5 * FLOORS * ROOMS_PER_FLOOR; i++)
+	{
+		if (monsters[i].cell.x == c.x &&
+			monsters[i].cell.y == c.y &&
+			monsters[i].cell.flooor == c.flooor)
+		{
+			return i;
+		}
+	}
+	return -1;
 }
