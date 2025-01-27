@@ -144,8 +144,7 @@ int potions[3] = {0, 0, 0};							  // HEALTH SPEED DAMAGE
 int potions_left[3] = {0, 0, 0};					  // HEALTH SPEED DAMAGE
 char potions_icons[3][5] = {"🩺", "🚀", "💥"};		  // HEALTH SPEED DAMAGE
 char *potions_names[POTIONS_COUNT] = {"Health Potion", "Speed Potion", "Damage Potion"};
-int power = 0;
-int speed = 0;
+int speed_moving = 1;
 int hp = 100;
 int gold = 0;
 int recovery_health = 1;
@@ -1105,8 +1104,6 @@ void generate_map()
 {
 	hp = 100;
 	gold = 0;
-	speed = 0;
-	power = 0;
 
 	for (int i = 0; i < FLOORS; i++)
 	{
@@ -1863,7 +1860,7 @@ void print_map(char message[])
 	}
 
 	move(LINES - 1, 0);
-	printw("Floor: %d\tHP: %d\tGold: %d\tSpeed: %d\tPower: %d", flooor + 1, hp, gold, speed, power);
+	printw("Floor: %d\tHP: %d\tGold: %d", flooor + 1, hp, gold);
 	refresh();
 }
 
@@ -1981,32 +1978,32 @@ void move_player(int *px, int *py, int direction, char *message)
 		switch (direction)
 		{
 		case '7':
-			new_y--;
-			new_x--;
+			new_y -= speed_moving;
+			new_x -= speed_moving;
 			break;
 		case '8':
-			new_y--;
+			new_y -= speed_moving;
 			break;
 		case '9':
-			new_y--;
-			new_x++;
+			new_y -= speed_moving;
+			new_x += speed_moving;
 			break;
 		case '4':
-			new_x--;
+			new_x -= speed_moving;
 			break;
 		case '6':
-			new_x++;
+			new_x += speed_moving;
 			break;
 		case '1':
-			new_y++;
-			new_x--;
+			new_y += speed_moving;
+			new_x -= speed_moving;
 			break;
 		case '2':
-			new_y++;
+			new_y += speed_moving;
 			break;
 		case '3':
-			new_y++;
-			new_x++;
+			new_y += speed_moving;
+			new_x += speed_moving;
 			break;
 		default:
 			return;
@@ -2652,7 +2649,7 @@ void eat_food(char *message)
 			{
 				foods[choice - 1] = 0;
 				fullness = FULLNESS_MAX + 5;
-				power += 5;
+				potions[2]++;
 				hp += recovery_health * 5;
 				if (hp > 100)
 					hp = 100;
@@ -2664,7 +2661,7 @@ void eat_food(char *message)
 				hp += recovery_health * 5;
 				if (hp > 100)
 					hp = 100;
-				speed += 5;
+				potions[1]++;
 			}
 			else
 			{
@@ -3478,9 +3475,11 @@ void manage_potions()
 	if (potions_left[1] > 0)
 	{
 		potions_left[1]--;
+		speed_moving = 2;
 	}
 	else
 	{
+		speed_moving = 1;
 	}
 
 	int tmp1[] = {5, 12, 15, 5, 10};
