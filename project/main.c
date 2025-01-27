@@ -2026,6 +2026,12 @@ void move_player(int *px, int *py, int direction, char *message)
 				if (hp > 100)
 					hp = 100;
 			}
+			else
+			{
+				hp++;
+				if (hp > 100)
+					hp = 100;
+			}
 
 			manage_foods();
 			fullness--;
@@ -2640,17 +2646,26 @@ void eat_food(char *message)
 			{
 				foods[choice - 1] = 0;
 				fullness = FULLNESS_MAX + 5;
+				hp += 5;
+				if (hp > 100)
+					hp = 100;
 			}
 			else if (foods[choice - 1] == 2)
 			{
 				foods[choice - 1] = 0;
 				fullness = FULLNESS_MAX + 5;
-				power += 5;
+				hp = (hp + 5) % 100;
+				hp += 5;
+				if (hp > 100)
+					hp = 100;
 			}
 			else if (foods[choice - 1] == 3)
 			{
 				foods[choice - 1] = 0;
 				fullness = FULLNESS_MAX + 5;
+				hp += 5;
+				if (hp > 100)
+					hp = 100;
 				speed += 5;
 			}
 			else
@@ -2743,6 +2758,7 @@ void show_inventory()
 
 		// دریافت ورودی کاربر
 		ch = getch();
+		int finish = 0;
 		switch (ch)
 		{
 		case KEY_UP:
@@ -2760,31 +2776,51 @@ void show_inventory()
 			break;
 		case 'a':
 		case 'A':
-			current_weapon = 0;
+		{
+			finish = 1;
+			change_weapon(0);
 			break;
+		}
 		case 'b':
 		case 'B':
-			current_weapon = 1;
+		{
+			finish = 1;
+			change_weapon(1);
 			break;
+		}
 		case 'c':
 		case 'C':
-			current_weapon = 2;
+		{
+			finish = 1;
+			change_weapon(2);
 			break;
+		}
 		case 'd':
 		case 'D':
-			current_weapon = 3;
+		{
+			finish = 1;
+			change_weapon(3);
 			break;
+		}
 		case 'e':
 		case 'E':
-			current_weapon = 4;
+		{
+			finish = 1;
+			change_weapon(4);
 			break;
-
-		// خروج
+		}
 		case 'q':
 		case 'Q':
+		{
+			finish = 1;
 			endwin();
 			clear();
 			refresh();
+			break;
+		}
+		}
+		if (finish)
+		{
 			return;
 		}
 	}
@@ -3291,7 +3327,14 @@ void manage_fire(Cell cell, int do_last_fire_again)
 				if (i > 1)
 					map[new_cell.flooor][new_cell_2.x][new_cell_2.y] = last_position;
 				if (i == 1)
+				{
+					if (weapons[current_weapon] <= 0)
+					{
+						current_weapon = -1;
+						show_inventory();
+					}
 					weapons[current_weapon]--;
+				}
 				last_position = map[new_cell.flooor][new_cell.x][new_cell.y];
 				if (is_monster(map[new_cell.flooor][new_cell.x][new_cell.y]))
 				{
@@ -3384,9 +3427,22 @@ int find_monster(Cell c)
 
 void change_weapon(int new_weapon)
 {
-	if(current_weapon == -1 || current_weapon == new_weapon)
+	char message[100];
+	endwin();
+	clear();
+	refresh();
+	if (current_weapon == -1 || current_weapon == new_weapon)
 	{
-		current_weapon = new_weapon;
+		if (weapons[new_weapon] == 0)
+		{
+			print_map("Your weapon is over...");
+		}
+		else
+		{
+			current_weapon = new_weapon;
+			sprintf(message, "Your current weapon is %s", weapons_names[current_weapon]);
+			print_map(message);
+		}
 	}
 	else
 	{
