@@ -19,6 +19,7 @@
 #define ROOMS_PER_HEIGHT 3
 
 #define WALL '|'
+#define VERTICAL_WALL '_'
 #define FLOOR '.'
 #define DOOR '+'
 #define CORRIDOR '#'
@@ -38,15 +39,20 @@
 #define MAGICAL_FOOD_IN_MAP 'x'
 #define CORRUPT_FOOD "💀"
 #define MACE_IN_MAP 'm'
+#define MACE_IN_MAP_2 'X'
 #define MACE "⚒"	// گرز
 #define DAGGER "🗡" // خنجر
 #define DAGGER_IN_MAP 'd'
+#define DAGGER_IN_MAP_2 'Z'
 #define MAGIC_WAND "🪄" // عصای جادویی
 #define MAGIC_WAND_IN_MAP 'w'
+#define MAGIC_WAND_IN_MAP_2 'r'
 #define NORMAL_ARROW "➳" // تیر عادی
 #define NORMAL_ARROW_IN_MAP 'a'
+#define NORMAL_ARROW_IN_MAP_2 'R'
 #define SWARD "⚔" // شمشیر
 #define SWARD_IN_MAP 's'
+#define SWARD_IN_MAP_2 'v'
 #define HEALTH "🩺"
 #define HEALTH_IN_MAP 'h'
 #define SPEED "🚀"
@@ -129,7 +135,9 @@ int fullness = FULLNESS_MAX + 5;
 int weapons[5] = {0, 0, 0, 0, 0};						// MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
 char weapons_icons[5][5] = {"⚒", "🗡", "🪄", "➳", "⚔"}; // MACE DAGGER MAGIC_WAND NORMAL_ARROW SWARD
 int current_weapon = 0;
-char *weapons_names[WEAPONS_COUNT] = {"Mace", "Dagger", "Magic Wand", "Normal Arrow", "Sword"};
+char *weapons_names[WEAPONS_COUNT] = {"Mace", "Dagger", "Magic Wand", "Normal Arrow", "Sward"};
+char weapons_short_names[WEAPONS_COUNT] = {MACE_IN_MAP, DAGGER_IN_MAP, MAGIC_WAND_IN_MAP, NORMAL_ARROW_IN_MAP, SWARD_IN_MAP};
+char weapons_short_names_2[WEAPONS_COUNT] = {MACE_IN_MAP_2, DAGGER_IN_MAP_2, MAGIC_WAND_IN_MAP_2, NORMAL_ARROW_IN_MAP_2, SWARD_IN_MAP_2};
 int weapon_range[WEAPONS_COUNT] = {1, 5, 10, 5, 1};	  // برد سلاح‌ها
 int weapon_power[WEAPONS_COUNT] = {5, 12, 15, 5, 10}; // قدرت سلاح‌ها
 int potions[3] = {0, 0, 0};							  // HEALTH SPEED DAMAGE
@@ -181,9 +189,10 @@ void center_text(int y, const char *text);
 void manage_monsters(Cell c);
 void add_monster(Monster m);
 void reset_monsters_moves_in_room(Cell cell);
-void manage_fire(Cell cell);
+void manage_fire(Cell cell, int do_last_fire_again);
 int is_monster(char c);
 int find_monster(Cell c);
+void change_weapon(int new_seapon);
 
 int main()
 {
@@ -1111,7 +1120,7 @@ void generate_map()
 	for (int i = 0; i < 5; i++)
 	{
 		foods[i] = 0;
-		weapons[i] = 0;
+		weapons[i] = 10;
 		if (i < 3)
 		{
 			potions[i] = 0;
@@ -1192,14 +1201,14 @@ void generate_map()
 						}
 						else if (k == new_room.x || k == new_room.x + new_room.width - 1)
 						{
-							map[floor][k][t] = '_';
+							map[floor][k][t] = VERTICAL_WALL;
 						}
 						else
 						{
 							map[floor][k][t] = '.';
 						}
-						map[floor][new_room.x][new_room.y] = '_';
-						map[floor][new_room.x][new_room.y + new_room.height - 1] = '_';
+						map[floor][new_room.x][new_room.y] = VERTICAL_WALL;
+						map[floor][new_room.x][new_room.y + new_room.height - 1] = VERTICAL_WALL;
 					}
 				}
 
@@ -1325,7 +1334,6 @@ void generate_map()
 				Monster m;
 				m.moves = 0;
 				m.last_pos = FLOOR;
-				snake = 0;
 				if (!undead)
 				{
 					Cell t = get_empty_cell(new_room);
@@ -1780,14 +1788,35 @@ void print_map(char message[])
 					mvprintw(i + start_x, j + start_y, "%s", DAGGER);
 					j++;
 				}
+				else if (map[flooor][i][j] == DAGGER_IN_MAP_2 && !stairs[flooor][i][j])
+				{
+					attron(COLOR_PAIR(7));
+					mvprintw(i + start_x, j + start_y, "%s", DAGGER);
+					attroff(COLOR_PAIR(7));
+					j++;
+				}
 				else if (map[flooor][i][j] == MAGIC_WAND_IN_MAP && !stairs[flooor][i][j])
 				{
 					mvprintw(i + start_x, j + start_y, "%s", MAGIC_WAND);
 					j++;
 				}
+				else if (map[flooor][i][j] == MAGIC_WAND_IN_MAP_2 && !stairs[flooor][i][j])
+				{
+					attron(COLOR_PAIR(7));
+					mvprintw(i + start_x, j + start_y, "%s", MAGIC_WAND);
+					attroff(COLOR_PAIR(7));
+					j++;
+				}
 				else if (map[flooor][i][j] == NORMAL_ARROW_IN_MAP && !stairs[flooor][i][j])
 				{
 					mvprintw(i + start_x, j + start_y, "%s", NORMAL_ARROW);
+					j++;
+				}
+				else if (map[flooor][i][j] == NORMAL_ARROW_IN_MAP_2 && !stairs[flooor][i][j])
+				{
+					attron(COLOR_PAIR(7));
+					mvprintw(i + start_x, j + start_y, "%s", NORMAL_ARROW);
+					attroff(COLOR_PAIR(7));
 					j++;
 				}
 				else if (map[flooor][i][j] == SWARD_IN_MAP && !stairs[flooor][i][j])
@@ -1851,7 +1880,7 @@ void move_player(int *px, int *py, int direction, char *message)
 	{
 		Cell c;
 		c.flooor = flooor, c.x = *py, c.y = *px;
-		manage_fire(c);
+		manage_fire(c, 0);
 		manage_monsters(c);
 	}
 
@@ -1987,6 +2016,7 @@ void move_player(int *px, int *py, int direction, char *message)
 			next_cell == BLACK_GOLD_IN_MAP || next_cell == SIMPLE_FOOD_IN_MAP ||
 			next_cell == DAGGER_IN_MAP || next_cell == MAGIC_WAND_IN_MAP ||
 			next_cell == NORMAL_ARROW_IN_MAP || next_cell == SWARD_IN_MAP ||
+			next_cell == DAGGER_IN_MAP_2 || next_cell == MAGIC_WAND_IN_MAP_2 || next_cell == NORMAL_ARROW_IN_MAP_2 ||
 			next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP ||
 			next_cell == FINISH_GAME_IN_MAP)
 		{
@@ -2195,6 +2225,22 @@ void move_player(int *px, int *py, int direction, char *message)
 					stairs[flooor][*py][*px] = 0;
 				}
 			}
+			else if (next_cell == DAGGER_IN_MAP_2)
+			{
+				if (!press_g)
+				{
+					if (!nightmare)
+					{
+						strcpy(message, "You get 1 Dagger 🗡");
+						weapons[1] += 1;
+					}
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
 			else if (next_cell == MAGIC_WAND_IN_MAP)
 			{
 				if (!press_g)
@@ -2211,14 +2257,46 @@ void move_player(int *px, int *py, int direction, char *message)
 					stairs[flooor][*py][*px] = 0;
 				}
 			}
+			else if (next_cell == MAGIC_WAND_IN_MAP_2)
+			{
+				if (!press_g)
+				{
+					if (!nightmare)
+					{
+						strcpy(message, "You get 1 Magic Wand 🪄");
+						weapons[2] += 1;
+					}
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
 			else if (next_cell == NORMAL_ARROW_IN_MAP)
 			{
 				if (!press_g)
 				{
 					if (!nightmare)
 					{
-						strcpy(message, "You get 20 Noemal Arrows ➳");
+						strcpy(message, "You get 20 Normal Arrows ➳");
 						weapons[3] += 20;
+					}
+					last_pos = FLOOR;
+				}
+				else
+				{
+					stairs[flooor][*py][*px] = 0;
+				}
+			}
+			else if (next_cell == NORMAL_ARROW_IN_MAP_2)
+			{
+				if (!press_g)
+				{
+					if (!nightmare)
+					{
+						strcpy(message, "You get 1 Normal Arrows ➳");
+						weapons[3] += 1;
 					}
 					last_pos = FLOOR;
 				}
@@ -2617,7 +2695,9 @@ void show_inventory()
 	int ch;
 
 	mvprintw(1, (COLS - 20) / 2, "Your Inventory");
-	mvprintw(15, (COLS - 60) / 2, "Press A-E to select weapon, arrow keys for potions, Q to quit");
+	mvprintw(15, (COLS - 55) / 2, "Press A-E to select weapon, arrow keys for potions");
+	mvprintw(16, (COLS - 55) / 2, "      Q to quit");
+	mvprintw(17, (COLS - 55) / 2, "      W to put weapon in bag");
 
 	while (1)
 	{
@@ -2674,7 +2754,10 @@ void show_inventory()
 				selected_potion++;
 			break;
 
-		// انتخاب سلاح‌ها با کلیدهای خاص
+		case 'w':
+		case 'W':
+			current_weapon = -1;
+			break;
 		case 'a':
 		case 'A':
 			current_weapon = 0;
@@ -3085,8 +3168,15 @@ void reset_monsters_moves_in_room(Cell cell)
 	}
 }
 
-void manage_fire(Cell cell)
+void manage_fire(Cell cell, int do_last_fire_again)
 {
+	if (map[cell.flooor][cell.x][cell.y] == DOOR ||
+		map[cell.flooor][cell.x][cell.y] == CORRIDOR)
+	{
+		return;
+	}
+	keypad(stdscr, TRUE);
+	char last_position = FLOOR;
 	Cell new_cell;
 	new_cell.flooor = flooor;
 	int monster_id;
@@ -3128,6 +3218,124 @@ void manage_fire(Cell cell)
 			}
 		}
 	}
+	else
+	{
+		int ch = getch();
+		int dir = 1;
+		while (dir)
+		{
+			ch = getch();
+			switch (ch)
+			{
+			case ' ':
+				return;
+				break;
+
+			case KEY_UP:
+				dir = 0;
+				break;
+
+			case KEY_DOWN:
+				dir = 0;
+				break;
+
+			case KEY_LEFT:
+				dir = 0;
+				break;
+
+			case KEY_RIGHT:
+				dir = 0;
+				break;
+
+			default:
+				break;
+			}
+		}
+
+		new_cell.x = cell.x;
+		new_cell.y = cell.y;
+		Cell new_cell_2 = new_cell;
+
+		for (int i = 1; i <= weapon_range[current_weapon]; i++)
+		{
+			switch (ch)
+			{
+			case ' ':
+				return;
+				break;
+
+			case KEY_UP:
+				new_cell.x = cell.x - i;
+				break;
+
+			case KEY_DOWN:
+				new_cell.x = cell.x + i;
+				break;
+
+			case KEY_LEFT:
+				new_cell.y = cell.y - i;
+				break;
+
+			case KEY_RIGHT:
+				new_cell.y = cell.y + i;
+				break;
+
+			default:
+				break;
+			}
+			if (map[new_cell.flooor][new_cell.x][new_cell.y] != WALL &&
+				map[new_cell.flooor][new_cell.x][new_cell.y] != VERTICAL_WALL &&
+				map[new_cell.flooor][new_cell.x][new_cell.y] != DOOR &&
+				map[new_cell.flooor][new_cell.x][new_cell.y] != ' ')
+			{
+				if (i > 1)
+					map[new_cell.flooor][new_cell_2.x][new_cell_2.y] = last_position;
+				if (i == 1)
+					weapons[current_weapon]--;
+				last_position = map[new_cell.flooor][new_cell.x][new_cell.y];
+				if (is_monster(map[new_cell.flooor][new_cell.x][new_cell.y]))
+				{
+					monster_id = find_monster(new_cell);
+					if (monster_id == -1)
+					{
+						continue;
+					}
+
+					monsters[monster_id].health -= weapon_power[current_weapon];
+
+					clear();
+					refresh();
+					char message[200];
+					if (monsters[monster_id].health <= 0)
+					{
+						sprintf(message, "You Killed %c", monsters[monster_id].name);
+						map[new_cell.flooor][new_cell.x][new_cell.y] = monsters[monster_id].last_pos;
+						monsters[monster_id].name = '.';
+					}
+					else
+					{
+						sprintf(message, "Monster: %c, Heaalth: %d", monsters[monster_id].name, monsters[monster_id].health);
+					}
+					move(1, 0);
+					print_map(message);
+					usleep(500000);
+					keypad(stdscr, FALSE);
+					return;
+				}
+				map[new_cell.flooor][new_cell.x][new_cell.y] = weapons_short_names_2[current_weapon];
+				new_cell_2 = new_cell;
+			}
+			else
+			{
+				stairs[new_cell_2.flooor][new_cell_2.x][new_cell_2.y] = 0;
+				break;
+			}
+		}
+	}
+	keypad(stdscr, FALSE);
+	clear();
+	refresh();
+	print_map("");
 }
 
 int is_monster(char c)
@@ -3172,4 +3380,16 @@ int find_monster(Cell c)
 		}
 	}
 	return -1;
+}
+
+void change_weapon(int new_weapon)
+{
+	if(current_weapon == -1 || current_weapon == new_weapon)
+	{
+		current_weapon = new_weapon;
+	}
+	else
+	{
+		print_map("First put your current weapon in bag...");
+	}
 }
