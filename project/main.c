@@ -141,12 +141,14 @@ char weapons_short_names_2[WEAPONS_COUNT] = {MACE_IN_MAP_2, DAGGER_IN_MAP_2, MAG
 int weapon_range[WEAPONS_COUNT] = {1, 5, 10, 5, 1};	  // برد سلاح‌ها
 int weapon_power[WEAPONS_COUNT] = {5, 12, 15, 5, 10}; // قدرت سلاح‌ها
 int potions[3] = {0, 0, 0};							  // HEALTH SPEED DAMAGE
+int potions_left[3] = {0, 0, 0};					  // HEALTH SPEED DAMAGE
 char potions_icons[3][5] = {"🩺", "🚀", "💥"};		  // HEALTH SPEED DAMAGE
 char *potions_names[POTIONS_COUNT] = {"Health Potion", "Speed Potion", "Damage Potion"};
 int power = 0;
 int speed = 0;
 int hp = 100;
 int gold = 0;
+int recovery_health = 1;
 
 void empty_username();
 void add_new_user(const char *message);
@@ -193,6 +195,7 @@ void manage_fire(Cell cell, int do_last_fire_again);
 int is_monster(char c);
 int find_monster(Cell c);
 void change_weapon(int new_seapon);
+void manage_potions();
 
 int main()
 {
@@ -1123,7 +1126,7 @@ void generate_map()
 		weapons[i] = 10;
 		if (i < 3)
 		{
-			potions[i] = 0;
+			potions[i] = 10;
 		}
 	}
 	current_weapon = 0;
@@ -1707,13 +1710,13 @@ void print_map(char message[])
 	{
 		if (LINES % 2 == 0)
 		{
-			move(LINES / 2 + 1 + i, COLS - 6);
+			move(LINES / 2 + 1 + i, COLS - 9);
 		}
 		else
 		{
-			move((LINES + 1) / 2 + 1 + i, COLS - 6);
+			move((LINES + 1) / 2 + 1 + i, COLS - 9);
 		}
-		printw("%-5s|%d", potions_icons[i], potions[i]);
+		printw("%-2d|%-5s|%d", potions_left[i], potions_icons[i], potions[i]);
 	}
 
 	int start_x = (LINES - WIDTH) / 2;
@@ -2020,15 +2023,10 @@ void move_player(int *px, int *py, int direction, char *message)
 			next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP ||
 			next_cell == FINISH_GAME_IN_MAP)
 		{
+			manage_potions();
 			if (fullness >= FULLNESS_MAX)
 			{
-				hp += 3;
-				if (hp > 100)
-					hp = 100;
-			}
-			else
-			{
-				hp++;
+				hp += recovery_health * 2;
 				if (hp > 100)
 					hp = 100;
 			}
@@ -2646,7 +2644,7 @@ void eat_food(char *message)
 			{
 				foods[choice - 1] = 0;
 				fullness = FULLNESS_MAX + 5;
-				hp += 5;
+				hp += recovery_health * 5;
 				if (hp > 100)
 					hp = 100;
 			}
@@ -2654,8 +2652,8 @@ void eat_food(char *message)
 			{
 				foods[choice - 1] = 0;
 				fullness = FULLNESS_MAX + 5;
-				hp = (hp + 5) % 100;
-				hp += 5;
+				power += 5;
+				hp += recovery_health * 5;
 				if (hp > 100)
 					hp = 100;
 			}
@@ -2663,7 +2661,7 @@ void eat_food(char *message)
 			{
 				foods[choice - 1] = 0;
 				fullness = FULLNESS_MAX + 5;
-				hp += 5;
+				hp += recovery_health * 5;
 				if (hp > 100)
 					hp = 100;
 				speed += 5;
@@ -2713,6 +2711,7 @@ void show_inventory()
 	mvprintw(15, (COLS - 55) / 2, "Press A-E to select weapon, arrow keys for potions");
 	mvprintw(16, (COLS - 55) / 2, "      Q to quit");
 	mvprintw(17, (COLS - 55) / 2, "      W to put weapon in bag");
+	mvprintw(18, (COLS - 55) / 2, "      S to select potion");
 
 	while (1)
 	{
@@ -2770,6 +2769,16 @@ void show_inventory()
 				selected_potion++;
 			break;
 
+		case 's':
+		case 'S':
+			if (potions[selected_potion] > 0)
+			{
+				finish = 1;
+				potions[selected_potion]--;
+				potions_left[selected_potion] = 10;
+			}
+			break;
+
 		case 'w':
 		case 'W':
 			current_weapon = -1;
@@ -2821,6 +2830,9 @@ void show_inventory()
 		}
 		if (finish)
 		{
+			endwin();
+			clear();
+			refresh();
 			return;
 		}
 	}
@@ -3218,6 +3230,7 @@ void manage_fire(Cell cell, int do_last_fire_again)
 	int monster_id;
 	if (current_weapon == 0 || current_weapon == 4)
 	{
+		manage_potions();
 		for (int i = -1; i <= 1; i++)
 		{
 			for (int j = -1; j <= 1; j++)
@@ -3287,7 +3300,7 @@ void manage_fire(Cell cell, int do_last_fire_again)
 				break;
 			}
 		}
-
+		manage_potions();
 		new_cell.x = cell.x;
 		new_cell.y = cell.y;
 		Cell new_cell_2 = new_cell;
@@ -3447,5 +3460,39 @@ void change_weapon(int new_weapon)
 	else
 	{
 		print_map("First put your current weapon in bag...");
+	}
+}
+
+void manage_potions()
+{
+	if (potions_left[0] > 0)
+	{
+		potions_left[0]--;
+		recovery_health = 2;
+	}
+	else
+	{
+		recovery_health = 1;
+	}
+
+	if (potions_left[1] > 0)
+	{
+		potions_left[1]--;
+	}
+	else
+	{
+	}
+
+	int tmp1[] = {5, 12, 15, 5, 10};
+	int tmp2[] = {10, 24, 30, 10, 20};
+
+	if (potions_left[2] > 0)
+	{
+		potions_left[2]--;
+		memcpy(weapon_power, tmp2, POTIONS_COUNT);
+	}
+	else
+	{
+		memcpy(weapon_power, tmp1, POTIONS_COUNT);
 	}
 }
