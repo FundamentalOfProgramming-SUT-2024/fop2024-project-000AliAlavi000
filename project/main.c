@@ -86,6 +86,12 @@ typedef struct
 	int visited;	   // 1:visited 0:
 	int kind;		   // 0:simple 1:Treasure 2:Enchant 3:Nightmare
 } Room;
+char room_songs[4][15] =
+	{
+		"Simple.mp3",
+		"Treasure.mp3",
+		"Enchant.mp3",
+		"Nightmare.mp3"};
 
 typedef struct
 {
@@ -164,7 +170,7 @@ void pre_game_menu();
 void forgot_password(const char *username);
 char *get_password(const char *username);
 void game_setting();
-void play_mp3();
+void play_mp3(char *address);
 void kill_mp3();
 void scores_table();
 void generate_map();
@@ -199,7 +205,18 @@ void manage_potions();
 int main()
 {
 	setlocale(LC_ALL, "");
-	play_mp3();
+	if (song == 1)
+	{
+		play_mp3("1.mp3");
+	}
+	else if (song == 2)
+	{
+		play_mp3("2.mp3");
+	}
+	else if (song == 0)
+	{
+		play_mp3("");
+	}
 	initscr();
 	clear();
 	noecho();
@@ -731,7 +748,18 @@ void pre_game_menu()
 		{
 			// setting
 			game_setting();
-			play_mp3();
+			if (song == 1)
+			{
+				play_mp3("1.mp3");
+			}
+			else if (song == 2)
+			{
+				play_mp3("2.mp3");
+			}
+			else if (song == 0)
+			{
+				play_mp3("");
+			}
 		}
 		else if (choice == 5)
 		{
@@ -892,23 +920,17 @@ void game_setting()
 	endwin();
 }
 
-void play_mp3()
+void play_mp3(char *address)
 {
 	char command[256];
 
 	kill_mp3();
-	if (song == 0)
+	if (address == "")
 	{
 		return;
 	}
-	if (song == 1)
-	{
-		snprintf(command, sizeof(command), "mpg123 1.mp3 > /dev/null 2>&1 &");
-	}
-	else if (song == 2)
-	{
-		snprintf(command, sizeof(command), "mpg123 2.mp3 > /dev/null 2>&1 &");
-	}
+
+	snprintf(command, sizeof(command), "mpg123 %s > /dev/null 2>&1 &", address);
 
 	system(command);
 }
@@ -2059,6 +2081,7 @@ void move_player(int *px, int *py, int direction, char *message)
 
 			if (get_room(c) != -1 && get_room(c) != get_room(current_cell))
 			{
+				play_mp3(room_songs[rooms[get_room(c)].kind]);
 				reset_monsters_moves_in_room(c);
 			}
 			manage_monsters(c);
@@ -2422,6 +2445,7 @@ void start_playing()
 	rooms[0].visited = 1;
 
 	print_map("Hello...");
+	play_mp3(room_songs[0]);
 
 	last_pos = FLOOR;
 	int ch;
