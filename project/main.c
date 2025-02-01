@@ -22,6 +22,8 @@
 #define VERTICAL_WALL '_'
 #define FLOOR '.'
 #define DOOR '+'
+#define HIDDEN_DOOR '/'
+#define LOCK_DOOR '@'
 #define CORRIDOR '#'
 #define PILLAR 'O'
 #define WINDOWW '='
@@ -84,6 +86,7 @@ typedef struct
 	int flooor, x, y;  // مختصات شروع زیرجدول
 	int width, height; // ابعاد زیرجدول
 	int visited;	   // 1:visited 0:
+	int dead_end;	   // 1:yes 0:no
 	int kind;		   // 0:simple 1:Treasure 2:Enchant 3:Nightmare
 } Room;
 char room_songs[4][15] =
@@ -184,6 +187,7 @@ int contains(int num, int nums[], int size);
 Cell get_empty_cell(Room room);
 int get_room(Cell c);
 int show_stair(int x, int y);
+int show_hidden_door(int x, int y);
 int evey_rooms_in_this_floor_visited(int flooor);
 void eat_food(char *message);
 void show_inventory();
@@ -201,6 +205,7 @@ int is_monster(char c);
 int find_monster(Cell c);
 void change_weapon(int new_seapon);
 void manage_potions();
+char hidden_door_icon(int x, int y);
 
 int main()
 {
@@ -925,7 +930,7 @@ void play_mp3(char *address)
 	char command[256];
 
 	kill_mp3();
-	if (address == "")
+	if (address == "" || song == 0)
 	{
 		return;
 	}
@@ -1166,6 +1171,7 @@ void generate_map()
 
 	for (int floor = 0; floor < FLOORS; floor++)
 	{
+		int make_dead_end_room = 0;
 		for (int i = 0; i < ROOMS_PER_WIDTH; i++)
 		{
 			for (int j = 0; j < ROOMS_PER_HEIGHT; j++)
@@ -1209,6 +1215,16 @@ void generate_map()
 				else if (!floor && !i && !j)
 				{
 					new_room.kind = 0;
+				}
+
+				if (!(rand() % (ROOMS_PER_WIDTH)) && !make_dead_end_room && (i != 0 || j != 0))
+				{
+					make_dead_end_room = 1;
+					new_room.dead_end = 1;
+				}
+				else
+				{
+					new_room.dead_end = 0;
 				}
 
 				rooms[floor * ROOMS_PER_FLOOR + i + (j * ROOMS_PER_WIDTH)] = new_room;
@@ -1604,9 +1620,23 @@ void connect_rooms(int floor)
 			int door2_x = rand() % (r2.width - 2) + r2.x + 1;
 			int door2_y = r2.y;
 
-			// قرار دادن درها
-			map[floor][door1_x][door1_y] = '+';
-			map[floor][door2_x][door2_y] = '+';
+			if (r1.dead_end)
+			{
+				map[floor][door1_x][door1_y] = HIDDEN_DOOR;
+			}
+			else
+			{
+				map[floor][door1_x][door1_y] = DOOR;
+			}
+
+			if (r2.dead_end)
+			{
+				map[floor][door2_x][door2_y] = HIDDEN_DOOR;
+			}
+			else
+			{
+				map[floor][door2_x][door2_y] = DOOR;
+			}
 
 			draw_corridor(floor, door1_x, door1_y + 1, door2_x, door2_y - 1);
 		}
@@ -1627,9 +1657,23 @@ void connect_rooms(int floor)
 			int door2_y = rand() % (r2.height - 2) + r2.y + 1;
 			int door2_x = r2.x;
 
-			// قرار دادن درها
-			map[floor][door1_x][door1_y] = '+';
-			map[floor][door2_x][door2_y] = '+';
+			if (r1.dead_end)
+			{
+				map[floor][door1_x][door1_y] = HIDDEN_DOOR;
+			}
+			else
+			{
+				map[floor][door1_x][door1_y] = DOOR;
+			}
+
+			if (r2.dead_end)
+			{
+				map[floor][door2_x][door2_y] = HIDDEN_DOOR;
+			}
+			else
+			{
+				map[floor][door2_x][door2_y] = DOOR;
+			}
 
 			draw_corridor(floor, door1_x + 1, door1_y, door2_x - 1, door2_y);
 		}
@@ -1769,6 +1813,17 @@ void print_map(char message[])
 					attron(COLOR_PAIR(color + 1));
 					mvprintw(i + start_x, j + start_y, "%c", PLAYER);
 					attroff(COLOR_PAIR(color + 1));
+				}
+				else if (map[flooor][i][j] == HIDDEN_DOOR)
+				{
+					if (show_hidden_door(i, j))
+					{
+						mvprintw(i + start_x, j + start_y, "%c", HIDDEN_DOOR);
+					}
+					else
+					{
+						mvprintw(i + start_x, j + start_y, "%c", hidden_door_icon(i, j));
+					}
 				}
 				else if (map[flooor][i][j] == TRAP && !stairs[flooor][i][j])
 				{
@@ -1957,12 +2012,12 @@ void move_player(int *px, int *py, int direction, char *message)
 		}
 	}
 
-	if (last_pos == STAIR && (direction == KEY_RIGHT || direction == KEY_LEFT))
+	if (last_pos == STAIR && (direction == '9' || direction == '3'))
 	{
 		Cell c;
 		c.x = *py;
 		c.y = *px;
-		if (direction == KEY_RIGHT && flooor != 0)
+		if (direction == '3' && flooor != 0)
 		{
 			map[flooor][*py][*px] = last_pos;
 			flooor--;
@@ -1970,7 +2025,7 @@ void move_player(int *px, int *py, int direction, char *message)
 			map[flooor][*py][*px] = PLAYER;
 			manage_monsters(c);
 		}
-		else if (direction == KEY_LEFT && flooor != FLOORS - 1)
+		else if (direction == '9' && flooor != FLOORS - 1)
 		{
 			// if (evey_rooms_in_this_floor_visited(flooor))
 			if (1)
@@ -1990,6 +2045,7 @@ void move_player(int *px, int *py, int direction, char *message)
 			}
 		}
 		rooms[flooor * ROOMS_PER_FLOOR].visited = 1;
+		play_mp3(room_songs[rooms[get_room(c)].kind]);
 		clear();
 		refresh();
 		return;
@@ -2040,7 +2096,7 @@ void move_player(int *px, int *py, int direction, char *message)
 			next_cell == NORMAL_ARROW_IN_MAP || next_cell == SWARD_IN_MAP ||
 			next_cell == DAGGER_IN_MAP_2 || next_cell == MAGIC_WAND_IN_MAP_2 || next_cell == NORMAL_ARROW_IN_MAP_2 ||
 			next_cell == HEALTH_IN_MAP || next_cell == SPEED_IN_MAP || next_cell == DAMAGE_IN_MAP ||
-			next_cell == FINISH_GAME_IN_MAP)
+			next_cell == FINISH_GAME_IN_MAP || next_cell == HIDDEN_DOOR || next_cell == LOCK_DOOR)
 		{
 			manage_potions();
 			if (fullness >= FULLNESS_MAX)
@@ -2093,7 +2149,7 @@ void move_player(int *px, int *py, int direction, char *message)
 				nightmare = 1;
 			}
 
-			if (next_cell == DOOR)
+			if (next_cell == DOOR || next_cell == HIDDEN_DOOR || next_cell == LOCK_DOOR)
 			{
 				rooms[room_index].visited = 1;
 			}
@@ -2566,13 +2622,34 @@ int get_room(Cell c)
 
 int show_stair(int x, int y)
 {
-	if (map[flooor][x][y] == CORRIDOR || map[flooor][x][y] == DOOR)
+	if (map[flooor][x][y] == CORRIDOR || map[flooor][x][y] == DOOR ||
+		map[flooor][x][y] == HIDDEN_DOOR || map[flooor][x][y] == LOCK_DOOR)
 	{
 		for (int i = -3; i < 4; i++)
 		{
 			for (int j = -3; j < 4; j++)
 			{
-				if (map[flooor][x + i][y + j] == PLAYER && (last_pos == DOOR || last_pos == CORRIDOR))
+				if (map[flooor][x + i][y + j] == PLAYER &&
+					(last_pos == DOOR || last_pos == CORRIDOR || last_pos == HIDDEN_DOOR || last_pos == LOCK_DOOR))
+				{
+					return 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+int show_hidden_door(int x, int y)
+{
+	if (map[flooor][x][y] == HIDDEN_DOOR)
+	{
+		for (int i = -1; i < 2; i++)
+		{
+			for (int j = -1; j < 2; j++)
+			{
+				if (map[flooor][x + i][y + j] == PLAYER &&
+					(last_pos == DOOR || last_pos == CORRIDOR || last_pos == HIDDEN_DOOR || last_pos == LOCK_DOOR))
 				{
 					return 1;
 				}
@@ -3182,6 +3259,8 @@ void manage_monsters(Cell c)
 
 			if (map[flooor][m_x][m_y] == FLOOR ||
 				map[flooor][m_x][m_y] == DOOR ||
+				map[flooor][m_x][m_y] == HIDDEN_DOOR ||
+				map[flooor][m_x][m_y] == LOCK_DOOR ||
 				map[flooor][m_x][m_y] == CORRIDOR)
 			{
 				map[flooor][monsters[i].cell.x][monsters[i].cell.y] = monsters[i].last_pos;
@@ -3240,6 +3319,8 @@ void reset_monsters_moves_in_room(Cell cell)
 void manage_fire(Cell cell, int do_last_fire_again)
 {
 	if (map[cell.flooor][cell.x][cell.y] == DOOR ||
+		map[cell.flooor][cell.x][cell.y] == HIDDEN_DOOR ||
+		map[cell.flooor][cell.x][cell.y] == LOCK_DOOR ||
 		map[cell.flooor][cell.x][cell.y] == CORRIDOR)
 	{
 		return;
@@ -3356,6 +3437,8 @@ void manage_fire(Cell cell, int do_last_fire_again)
 			if (map[new_cell.flooor][new_cell.x][new_cell.y] != WALL &&
 				map[new_cell.flooor][new_cell.x][new_cell.y] != VERTICAL_WALL &&
 				map[new_cell.flooor][new_cell.x][new_cell.y] != DOOR &&
+				map[new_cell.flooor][new_cell.x][new_cell.y] != HIDDEN_DOOR &&
+				map[new_cell.flooor][new_cell.x][new_cell.y] != LOCK_DOOR &&
 				map[new_cell.flooor][new_cell.x][new_cell.y] != ' ')
 			{
 				if (i > 1)
@@ -3517,5 +3600,21 @@ void manage_potions()
 	else
 	{
 		memcpy(weapon_power, tmp1, POTIONS_COUNT);
+	}
+}
+
+char hidden_door_icon(int x, int y)
+{
+	if (map[flooor][x][y + 1] == VERTICAL_WALL || map[flooor][x][y - 1] == VERTICAL_WALL)
+	{
+		return VERTICAL_WALL;
+	}
+	else if (map[flooor][x + 1][y] == WALL || map[flooor][x - 1][y] == WALL)
+	{
+		return WALL;
+	}
+	else
+	{
+		return HIDDEN_DOOR;
 	}
 }
