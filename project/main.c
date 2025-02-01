@@ -529,7 +529,7 @@ void generate_password(int length, char *password)
 void save_user(const char *username, const char *password, const char *email)
 {
 	sqlite3 *db = connect_to_database(DB_NAME);
-	if (add_user(db, username, password, email) == 0)
+	if (add_user(db, username, password, email) != 0)
 	{
 		sqlite3_close(db);
 		add_new_user("\nTry again please...");
@@ -642,32 +642,55 @@ void login(const char *message)
 
 int login_user(const char *username, const char *password)
 {
-	FILE *file = fopen(FILENAME, "r");
-	if (!file)
-		return 0;
-
-	char line[200];
-	while (fgets(line, sizeof(line), file))
+	sqlite3 *db = connect_to_database(DB_NAME);
+	if (!db)
 	{
-		char stored_username[50], stored_password[50];
-		sscanf(line, "%49s %49s", stored_username, stored_password);
-		if (strcmp(username, stored_username) == 0)
+		return 0;
+	}
+
+	const char *query = "SELECT Password FROM Users WHERE Username = ?;";
+	sqlite3_stmt *stmt;
+
+	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
+	if (rc != SQLITE_OK)
+	{
+		print_error(sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return 0;
+	}
+
+	sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+
+	rc = sqlite3_step(stmt);
+	if (rc == SQLITE_ROW)
+	{
+		const char *stored_password = (const char *)sqlite3_column_text(stmt, 0);
+		if (strcmp(stored_password, password) == 0)
 		{
-			if (strcmp(password, stored_password) == 0)
-			{
-				memset(user_name, 0, sizeof(user_name));
-				strcpy(user_name, username);
-				user_name[strlen(username)] = '\0';
-				fclose(file);
-				return 1;
-			}
-			fclose(file);
+			sqlite3_finalize(stmt);
+			sqlite3_close(db);
+			return 1;
+		}
+		else
+		{
+			sqlite3_finalize(stmt);
+			sqlite3_close(db);
 			return 2;
 		}
 	}
-
-	fclose(file);
-	return 0;
+	else if (rc == SQLITE_DONE)
+	{
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return 0;
+	}
+	else
+	{
+		print_error(sqlite3_errmsg(db));
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return 0;
+	}
 }
 
 void pre_game_menu()

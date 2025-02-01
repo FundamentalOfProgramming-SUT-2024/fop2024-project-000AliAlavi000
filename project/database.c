@@ -24,7 +24,7 @@ sqlite3 *connect_to_database(const char *db_name)
 // تابع برای نمایش اطلاعات به شکل جدول
 int display_users_table(sqlite3 *db)
 {
-    const char *query = "SELECT ID, Username, Email, Level, Color, Song, LastPos, Floor, EverythingVisible, Fullness, CurrentWeapon, SpeedMoving, HP, Gold, RecoveryHealth FROM Users;";
+    const char *query = "SELECT ID, Username, Password, Level, Color, Song, LastPos, Floor, EverythingVisible, Fullness, CurrentWeapon, SpeedMoving, HP, Gold, RecoveryHealth FROM Users;";
     sqlite3_stmt *stmt;
 
     // آماده‌سازی کوئری
@@ -38,7 +38,7 @@ int display_users_table(sqlite3 *db)
     // چاپ هدر جدول
     printf("---------------------------------------------------------------------------------------------------------------------------------\n");
     printf("| %-3s | %-15s | %-20s | %-5s | %-5s | %-4s | %-7s | %-5s | %-16s | %-8s | %-13s | %-12s | %-3s | %-4s | %-15s |\n",
-           "ID", "Username", "Email", "Level", "Color", "Song", "LastPos", "Floor", "EverythingVisible", "Fullness", "CurrentWeapon", "SpeedMoving", "HP", "Gold", "RecoveryHealth");
+           "ID", "Username", "Password", "Level", "Color", "Song", "LastPos", "Floor", "EverythingVisible", "Fullness", "CurrentWeapon", "SpeedMoving", "HP", "Gold", "RecoveryHealth");
     printf("---------------------------------------------------------------------------------------------------------------------------------\n");
 
     // چاپ داده‌ها
