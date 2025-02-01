@@ -872,7 +872,51 @@ void forgot_password(const char *username)
 
 char *get_password(const char *username)
 {
-	FILE *file = fopen(FILENAME, "r");
+	sqlite3 *db = connect_to_database(DB_NAME);
+	if (!db)
+	{
+		return "Database connection failed.";
+	}
+
+	const char *query = "SELECT Password FROM Users WHERE Username = ?;";
+	sqlite3_stmt *stmt;
+
+	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
+	if (rc != SQLITE_OK)
+	{
+		print_error(sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return "Database query failed.";
+	}
+
+	sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+
+	rc = sqlite3_step(stmt);
+	if (rc == SQLITE_ROW)
+	{
+		const char *stored_password = (const char *)sqlite3_column_text(stmt, 0);
+		static char password[50];
+		strncpy(password, stored_password, sizeof(password) - 1);
+		password[sizeof(password) - 1] = '\0';
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return password;
+	}
+	else if (rc == SQLITE_DONE)
+	{
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return "Username not found.";
+	}
+	else
+	{
+		print_error(sqlite3_errmsg(db));
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return "Database error.";
+	}
+
+	/*FILE *file = fopen(FILENAME, "r");
 	if (!file)
 	{
 		return "Try again please.";
@@ -893,7 +937,7 @@ char *get_password(const char *username)
 	}
 
 	fclose(file);
-	return "Username not found...";
+	return "Username not found...";*/
 }
 
 void game_setting()
