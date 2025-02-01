@@ -8,8 +8,10 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <locale.h>
+#include <sqlite3.h>
 
 #define FILENAME "users.txt"
+#define DB_NAME "game.db"
 #define ROWS_PER_PAGE 20
 #define WIDTH 20
 #define HEIGHT 55
@@ -206,9 +208,17 @@ int find_monster(Cell c);
 void change_weapon(int new_seapon);
 void manage_potions();
 char hidden_door_icon(int x, int y);
+char *print_error(const char *message);
+sqlite3 *connect_to_database(const char *db_name);
+int execute_query(sqlite3 *db, const char *query);
+int create_users_table(sqlite3 *db);
+int add_user(sqlite3 *db, const char *username, const char *password, const char *email);
+int start_database();
 
 int main()
 {
+	start_database();
+
 	setlocale(LC_ALL, "");
 	if (song == 1)
 	{
@@ -518,20 +528,14 @@ void generate_password(int length, char *password)
 
 void save_user(const char *username, const char *password, const char *email)
 {
-	FILE *file = fopen(FILENAME, "a");
-	if (!file)
+	sqlite3 *db = connect_to_database(DB_NAME);
+	if (add_user(db, username, password, email) == 0)
 	{
+		sqlite3_close(db);
 		add_new_user("\nTry again please...");
 		return;
 	}
-
-	int scores = 0;
-	int golds = 0;
-	int finish_games = 0;
-	int time_left = 0;
-
-	fprintf(file, "%s %s %s %d %d %d %d\n", username, password, email, scores, golds, finish_games, time_left);
-	fclose(file);
+	sqlite3_close(db);
 }
 
 void login(const char *message)
@@ -3616,5 +3620,142 @@ char hidden_door_icon(int x, int y)
 	else
 	{
 		return HIDDEN_DOOR;
+	}
+}
+
+char *print_error(const char *message)
+{
+	char *error_message = (char *)malloc(500 * sizeof(char));
+	if (error_message == NULL)
+	{
+		fprintf(stderr, "Memory allocation failed!\n");
+		return NULL;
+	}
+
+	snprintf(error_message, 500, "Error: %s\n", message);
+
+	return error_message;
+}
+
+sqlite3 *connect_to_database(const char *db_name)
+{
+	sqlite3 *db;
+	int rc = sqlite3_open(db_name, &db);
+	if (rc != SQLITE_OK)
+	{
+		print_error(sqlite3_errmsg(db));
+		return NULL;
+	}
+	return db;
+}
+
+int execute_query(sqlite3 *db, const char *query)
+{
+	char *err_msg = 0;
+	int rc = sqlite3_exec(db, query, 0, 0, &err_msg);
+	if (rc != SQLITE_OK)
+	{
+		print_error(err_msg);
+		sqlite3_free(err_msg);
+		return -1;
+	}
+	return 0;
+}
+
+int create_users_table(sqlite3 *db)
+{
+	const char *query = "CREATE TABLE IF NOT EXISTS Users ("
+						"ID INTEGER PRIMARY KEY AUTOINCREMENT, "
+						"Username TEXT NOT NULL UNIQUE, "
+						"Password TEXT NOT NULL, "
+						"Email TEXT NOT NULL, "
+						"Level INTEGER DEFAULT 1, "
+						"Color INTEGER DEFAULT 0, "
+						"Song INTEGER DEFAULT 0, "
+						"LastPos CHAR, "
+						"Floor INTEGER DEFAULT 0, "
+						"EverythingVisible INTEGER DEFAULT 0, "
+						"Map BLOB, "
+						"Rooms BLOB, "
+						"Monsters BLOB, "
+						"Stairs BLOB, "
+						"Foods BLOB, "
+						"FoodsTime BLOB, "
+						"Fullness INTEGER DEFAULT 105, "
+						"Weapons BLOB, "
+						"CurrentWeapon INTEGER DEFAULT 0, "
+						"Potions BLOB, "
+						"PotionsLeft BLOB, "
+						"SpeedMoving INTEGER DEFAULT 1, "
+						"HP INTEGER DEFAULT 100, "
+						"Gold INTEGER DEFAULT 0, "
+						"RecoveryHealth INTEGER DEFAULT 1);";
+	return execute_query(db, query);
+}
+
+int add_user(sqlite3 *db, const char *username, const char *password, const char *email)
+{
+	sqlite3_stmt *stmt;
+	const char *query = "INSERT INTO Users (Username, Password, Email, Level, Color, Song, LastPos, Floor, EverythingVisible, "
+						"Map, Rooms, Monsters, Stairs, Foods, FoodsTime, Fullness, Weapons, CurrentWeapon, Potions, PotionsLeft, "
+						"SpeedMoving, HP, Gold, RecoveryHealth) "
+						"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+
+	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
+	if (rc != SQLITE_OK)
+	{
+		print_error(sqlite3_errmsg(db));
+		return -1;
+	}
+
+	sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, password, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 3, email, -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 4, level);
+	sqlite3_bind_int(stmt, 5, color);
+	sqlite3_bind_int(stmt, 6, song);
+	sqlite3_bind_text(stmt, 7, &last_pos, 1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 8, flooor);
+	sqlite3_bind_int(stmt, 9, every_thing_visible);
+	sqlite3_bind_blob(stmt, 10, map, sizeof(map), SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 11, rooms, sizeof(rooms), SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 12, monsters, sizeof(monsters), SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 13, stairs, sizeof(stairs), SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 14, foods, sizeof(foods), SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 15, foods_time, sizeof(foods_time), SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 16, fullness);
+	sqlite3_bind_blob(stmt, 17, weapons, sizeof(weapons), SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 18, current_weapon);
+	sqlite3_bind_blob(stmt, 19, potions, sizeof(potions), SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 20, potions_left, sizeof(potions_left), SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 21, speed_moving);
+	sqlite3_bind_int(stmt, 22, hp);
+	sqlite3_bind_int(stmt, 23, gold);
+	sqlite3_bind_int(stmt, 24, recovery_health);
+
+	rc = sqlite3_step(stmt);
+	if (rc != SQLITE_DONE)
+	{
+		print_error(sqlite3_errmsg(db));
+		sqlite3_finalize(stmt);
+		return -1;
+	}
+
+	sqlite3_finalize(stmt);
+	return 0;
+}
+
+int start_database()
+{
+	sqlite3 *db = connect_to_database(DB_NAME);
+	if (!db)
+	{
+		return 1;
+	}
+
+	if (create_users_table(db) != 0)
+	{
+		sqlite3_close(db);
+		return 1;
 	}
 }
