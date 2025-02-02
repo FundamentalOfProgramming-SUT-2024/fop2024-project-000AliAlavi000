@@ -184,6 +184,7 @@ void generate_unique_random_numbers(int a, int b, int result[]); // generate a n
 void connect_rooms(int floor);
 void print_map(char message[]);
 void move_player(int *px, int *py, int direction, char *message);
+void start_new_game();
 void start_playing();
 int contains(int num, int nums[], int size);
 Cell get_empty_cell(Room room);
@@ -214,6 +215,7 @@ int execute_query(sqlite3 *db, const char *query);
 int create_users_table(sqlite3 *db);
 int add_user(sqlite3 *db, const char *username, const char *password, const char *email);
 int start_database();
+void load_game();
 
 int main()
 {
@@ -766,10 +768,12 @@ void pre_game_menu()
 		if (choice == 1)
 		{
 			// Start New Game
+			start_new_game();
 			start_playing();
 		}
 		else if (choice == 2)
 		{
+			start_playing();
 		}
 		else if (choice == 3)
 		{
@@ -915,29 +919,6 @@ char *get_password(const char *username)
 		sqlite3_close(db);
 		return "Database error.";
 	}
-
-	/*FILE *file = fopen(FILENAME, "r");
-	if (!file)
-	{
-		return "Try again please.";
-	}
-
-	char line[200];
-	static char password[50];
-	while (fgets(line, sizeof(line), file))
-	{
-		char stored_username[50], stored_password[50];
-		sscanf(line, "%49s %49s", stored_username, stored_password);
-		if (strcmp(username, stored_username) == 0)
-		{
-			fclose(file);
-			strcpy(password, stored_password);
-			return password;
-		}
-	}
-
-	fclose(file);
-	return "Username not found...";*/
 }
 
 void game_setting()
@@ -1046,10 +1027,29 @@ void scores_table()
 		return;
 	}
 
-	// Load user data
 	struct User users[100];
 	int count = 0;
-	char line[200];
+
+	sqlite3 *db = connect_to_database(DB_NAME);
+	if (!db)
+	{
+		return;
+	}
+
+	const char *query = "SELECT Username, HP, Gold, Games, Time FROM Users;";
+	sqlite3_stmt *stmt;
+
+	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
+	if (rc != SQLITE_OK)
+	{
+		print_error(sqlite3_errmsg(db));
+		return -1;
+	}
+	while (sqlite3_step(stmt) == SQLITE_ROW)
+	{
+		users[count].username = (char *)sqlite3_column_text(stmt, 1);
+	}
+	/*char line[200];
 	while (fgets(line, sizeof(line), file) && count < 100)
 	{
 		sscanf(line, "%49s %*s %*s %d %d %d %d",
@@ -1060,7 +1060,7 @@ void scores_table()
 			   &users[count].time_left);
 		count++;
 	}
-	fclose(file);
+	fclose(file);*/
 
 	// Sort users by scores
 	for (int i = 0; i < count - 1; i++)
@@ -2540,6 +2540,15 @@ void move_player(int *px, int *py, int direction, char *message)
 	refresh();
 }
 
+void start_new_game()
+{
+	flooor = 0;
+	generate_map();
+	every_thing_visible = 0;
+	rooms[0].visited = 1;
+	last_pos = FLOOR;
+}
+
 void start_playing()
 {
 	clear();
@@ -2548,12 +2557,6 @@ void start_playing()
 	cbreak();
 	keypad(stdscr, TRUE);
 	nodelay(stdscr, TRUE);
-	flooor = 0;
-	generate_map();
-
-	every_thing_visible = 0;
-	int armor = 0; // زره
-	int expp = 0;  // تجربه
 
 	int px, py;
 
@@ -2569,12 +2572,9 @@ void start_playing()
 		}
 	}
 
-	rooms[0].visited = 1;
-
 	print_map("Hello...");
 	play_mp3(room_songs[0]);
 
-	last_pos = FLOOR;
 	int ch;
 	char message[150];
 
@@ -3756,17 +3756,36 @@ int create_users_table(sqlite3 *db)
 						"SpeedMoving INTEGER DEFAULT 1, "
 						"HP INTEGER DEFAULT 100, "
 						"Gold INTEGER DEFAULT 0, "
-						"RecoveryHealth INTEGER DEFAULT 1);";
+						"RecoveryHealth INTEGER DEFAULT 1, "
+						"Games INTEGER DEFAULT 0, "
+						"Time TEXT);";
 	return execute_query(db, query);
 }
 
 int add_user(sqlite3 *db, const char *username, const char *password, const char *email)
 {
+	time_t now = time(NULL);
+	if (now == -1)
+	{
+		perror("time");
+		return -1;
+	}
+
+	struct tm *local_time = localtime(&now);
+	if (local_time == NULL)
+	{
+		perror("localtime");
+		return -1;
+	}
+
+	char time_str[20];
+	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", local_time);
+
 	sqlite3_stmt *stmt;
 	const char *query = "INSERT INTO Users (Username, Password, Email, Level, Color, Song, LastPos, Floor, EverythingVisible, "
 						"Map, Rooms, Monsters, Stairs, Foods, FoodsTime, Fullness, Weapons, CurrentWeapon, Potions, PotionsLeft, "
-						"SpeedMoving, HP, Gold, RecoveryHealth) "
-						"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+						"SpeedMoving, HP, Gold, RecoveryHealth, Games, Time) "
+						"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
 	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
 	if (rc != SQLITE_OK)
@@ -3799,6 +3818,8 @@ int add_user(sqlite3 *db, const char *username, const char *password, const char
 	sqlite3_bind_int(stmt, 22, hp);
 	sqlite3_bind_int(stmt, 23, gold);
 	sqlite3_bind_int(stmt, 24, recovery_health);
+	sqlite3_bind_int(stmt, 25, 0);
+	sqlite3_bind_text(stmt, 26, time_str, -1, SQLITE_STATIC);
 
 	rc = sqlite3_step(stmt);
 	if (rc != SQLITE_DONE)
@@ -3825,4 +3846,87 @@ int start_database()
 		sqlite3_close(db);
 		return 1;
 	}
+}
+
+void load_game()
+{
+	if (strcmp(user_name, "Guest mode") == 0)
+	{
+		return;
+	}
+
+	sqlite3 *db = connect_to_database(DB_NAME);
+	if (!db)
+	{
+		return;
+	}
+
+	const char *query = "SELECT Level, Color, Song, LastPos, Floor, EverythingVisible, "
+						"Map, Rooms, Monsters, Stairs, Foods, FoodsTime, Fullness, "
+						"Weapons, CurrentWeapon, Potions, PotionsLeft, SpeedMoving, HP, Gold, RecoveryHealth "
+						"FROM Users WHERE Username = ?;";
+	sqlite3_stmt *stmt;
+
+	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
+	if (rc != SQLITE_OK)
+	{
+		print_error(sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return;
+	}
+
+	sqlite3_bind_text(stmt, 1, user_name, -1, SQLITE_STATIC);
+
+	rc = sqlite3_step(stmt);
+	if (rc == SQLITE_ROW)
+	{
+		level = sqlite3_column_int(stmt, 0);
+		color = sqlite3_column_int(stmt, 1);
+		song = sqlite3_column_int(stmt, 2);
+		(char)sqlite3_column_text(stmt, 3)[0];
+		flooor = sqlite3_column_int(stmt, 4);
+		every_thing_visible = sqlite3_column_int(stmt, 5);
+
+		const void *map_blob = sqlite3_column_blob(stmt, 6);
+		const void *rooms_blob = sqlite3_column_blob(stmt, 7);
+		const void *monsters_blob = sqlite3_column_blob(stmt, 8);
+		const void *stairs_blob = sqlite3_column_blob(stmt, 9);
+		const void *foods_blob = sqlite3_column_blob(stmt, 10);
+		const void *foods_time_blob = sqlite3_column_blob(stmt, 11);
+		fullness = sqlite3_column_int(stmt, 12);
+		const void *weapons_blob = sqlite3_column_blob(stmt, 13);
+		current_weapon = sqlite3_column_int(stmt, 14);
+		const void *potions_blob = sqlite3_column_blob(stmt, 15);
+		const void *potions_left_blob = sqlite3_column_blob(stmt, 16);
+		speed_moving = sqlite3_column_int(stmt, 17);
+		hp = sqlite3_column_int(stmt, 18);
+		gold = sqlite3_column_int(stmt, 19);
+		recovery_health = sqlite3_column_int(stmt, 20);
+
+		if (map_blob)
+			memcpy(map, map_blob, sizeof(map));
+		if (rooms_blob)
+			memcpy(rooms, rooms_blob, sizeof(rooms));
+		if (monsters_blob)
+			memcpy(monsters, monsters_blob, sizeof(monsters));
+		if (stairs_blob)
+			memcpy(stairs, stairs_blob, sizeof(stairs));
+		if (foods_blob)
+			memcpy(foods, foods_blob, sizeof(foods));
+		if (foods_time_blob)
+			memcpy(foods_time, foods_time_blob, sizeof(foods_time));
+		if (weapons_blob)
+			memcpy(weapons, weapons_blob, sizeof(weapons));
+		if (potions_blob)
+			memcpy(potions, potions_blob, sizeof(potions));
+		if (potions_left_blob)
+			memcpy(potions_left, potions_left_blob, sizeof(potions_left));
+	}
+	else
+	{
+		print_error(sqlite3_errmsg(db));
+	}
+
+	sqlite3_finalize(stmt);
+	sqlite3_close(db);
 }
