@@ -124,7 +124,7 @@ struct User
 	int scores;
 	int golds;
 	int finish_games;
-	int time_left;
+	char time_left[20];
 };
 
 enum MonsterPower
@@ -1017,18 +1017,9 @@ void scores_table()
 	init_pair(5, COLOR_BLACK, COLOR_WHITE);
 	init_pair(6, COLOR_CYAN, COLOR_BLACK);
 
-	// Open file
-	FILE *file = fopen(FILENAME, "r");
-	if (!file)
-	{
-		mvprintw(LINES / 2, (COLS - 30) / 2, "Error: Could not open file.");
-		getch();
-		endwin();
-		return;
-	}
-
 	struct User users[100];
 	int count = 0;
+	int current_user_number = -1;
 
 	sqlite3 *db = connect_to_database(DB_NAME);
 	if (!db)
@@ -1043,26 +1034,22 @@ void scores_table()
 	if (rc != SQLITE_OK)
 	{
 		print_error(sqlite3_errmsg(db));
-		return -1;
+		return;
 	}
 	while (sqlite3_step(stmt) == SQLITE_ROW)
 	{
-		users[count].username = (char *)sqlite3_column_text(stmt, 1);
-	}
-	/*char line[200];
-	while (fgets(line, sizeof(line), file) && count < 100)
-	{
-		sscanf(line, "%49s %*s %*s %d %d %d %d",
-			   users[count].username,
-			   &users[count].scores,
-			   &users[count].golds,
-			   &users[count].finish_games,
-			   &users[count].time_left);
+		strcpy(users[count].username, (char *)sqlite3_column_text(stmt, 0));
+		users[count].golds = sqlite3_column_int(stmt, 2);
+		strcpy(users[count].time_left, (char *)sqlite3_column_text(stmt, 4));
+		users[count].scores = sqlite3_column_int(stmt, 2) + sqlite3_column_int(stmt, 1);
+		users[count].finish_games = sqlite3_column_int(stmt, 3);
+		if(strcmp(users[count].username, user_name) == 0)
+		{
+			current_user_number = count;
+		}
 		count++;
 	}
-	fclose(file);*/
 
-	// Sort users by scores
 	for (int i = 0; i < count - 1; i++)
 	{
 		for (int j = i + 1; j < count; j++)
@@ -1129,9 +1116,14 @@ void scores_table()
 				attron(COLOR_PAIR(1));
 			else if (i == 2)
 				attron(COLOR_PAIR(6));
+				
+			if (i == current_user_number)
+			{
+				attron(COLOR_PAIR(5));
+			}
 
 			mvprintw(start_row + 2 + (i - visible_start_idx), start_col,
-					 "%-5s %-16.16s %-7d %-6d %-6d %-9d",
+					 "%-5s %-16.16s %-7d %-6d %-6d %-9s",
 					 rank_display,
 					 users[i].username,
 					 users[i].scores,
@@ -1147,6 +1139,11 @@ void scores_table()
 				attroff(COLOR_PAIR(1));
 			else if (i == 2)
 				attroff(COLOR_PAIR(6));
+
+			if (i == current_user_number)
+			{
+				attroff(COLOR_PAIR(5));
+			}
 		}
 
 		mvprintw(LINES - 2, (COLS - 40) / 2, "Up/Down: Scroll, Left/Right: Pages, Q: Quit");
