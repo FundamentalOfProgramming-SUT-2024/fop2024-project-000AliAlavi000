@@ -222,9 +222,9 @@ int create_users_table(sqlite3 *db);
 int add_user(sqlite3 *db, const char *username, const char *password, const char *email);
 int start_database();
 void load_game();
-int user_games(sqlite3 *db);
-int update_user(int finish_new_games);
-void make_everything_defualt();
+int update_user();
+int add_user_games();
+void make_everything_defualt(int reset_scores);
 
 int main()
 {
@@ -576,7 +576,7 @@ void login(const char *message)
 
 	if (guest[0] == 'Y' || guest[0] == 'y')
 	{
-		make_everything_defualt();
+		make_everything_defualt(1);
 		guest_login();
 		pre_game_menu();
 		return;
@@ -1036,12 +1036,8 @@ void scores_table()
 		strcpy(users[count].username, (char *)sqlite3_column_text(stmt, 0));
 		users[count].golds = sqlite3_column_int(stmt, 2);
 		strcpy(users[count].time_left, (char *)sqlite3_column_text(stmt, 4));
-		users[count].scores = ((sqlite3_column_int(stmt, 2) * 50) + sqlite3_column_int(stmt, 1)) / 60;
+		users[count].scores = (users[count].golds) + (sqlite3_column_int(stmt, 1) / 10);
 		users[count].finish_games = sqlite3_column_int(stmt, 3);
-		if (strcmp(users[count].username, user_name) == 0)
-		{
-			current_user_number = count;
-		}
 		count++;
 	}
 
@@ -1057,6 +1053,15 @@ void scores_table()
 			}
 		}
 	}
+	
+	for (int i = 0; i < count; i++)
+	{
+		if (strcmp(users[i].username, user_name) == 0)
+		{
+			current_user_number = i;
+		}
+	}
+	
 
 	int current_page = 0;
 	int total_pages = (count + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE;
@@ -2564,7 +2569,7 @@ void start_playing()
 		}
 	}
 
-	for (int i = 0; i < WIDTH; i++)
+	/*for (int i = 0; i < WIDTH; i++)
 	{
 		for (int j = 0; j < HEIGHT; j++)
 		{
@@ -2578,11 +2583,10 @@ void start_playing()
 				py = j;
 			}
 		}
-	}
+	}*/
 
-	// print_map("Hello...");
 	char *mess = (char *)malloc(200 * sizeof(char));
-	sprintf(mess, "%d %d", px, py);
+	sprintf(mess, "Hello %s...", user_name);
 	print_map(mess);
 	play_mp3(room_songs[0]);
 
@@ -2601,6 +2605,11 @@ void start_playing()
 		{
 			move_player(&px, &py, ch, message);
 			print_map(message);
+		}
+		else if (last_pos == FINISH_GAME_IN_MAP)
+		{
+			finish_game();
+			break;
 		}
 		else
 		{
@@ -3120,8 +3129,9 @@ void draw_sad_animation()
 
 void finish_game()
 {
-	make_everything_defualt();
-	update_user(1);
+	make_everything_defualt(0);
+	update_user();
+	add_user_games();
 
 	initscr();
 	cbreak();
@@ -3137,7 +3147,7 @@ void finish_game()
 	{
 		attron(COLOR_PAIR(1));
 		center_text(3, "Game Over! You lost...");
-		score = gold / 100;
+		score = gold;
 		center_text(5, "Your Score:");
 		mvprintw(6, (COLS / 2) - 2, "%d", score);
 		attroff(COLOR_PAIR(1));
@@ -3148,7 +3158,7 @@ void finish_game()
 	{
 		attron(COLOR_PAIR(2));
 		center_text(3, "Congratulations! You won!");
-		score = hp + (gold * 10);
+		score = gold +(hp / 10);
 		center_text(5, "Your Score:");
 		mvprintw(6, (COLS / 2) - 2, "%d", score);
 		attroff(COLOR_PAIR(2));
@@ -3954,19 +3964,20 @@ void load_game()
 	sqlite3_close(db);
 }
 
-int user_games(sqlite3 *db)
+int add_user_games()
 {
 	if (strcmp(user_name, "Guest mode") == 0)
 	{
 		return -1;
 	}
-
+	
+	sqlite3 *db = connect_to_database(DB_NAME);
 	if (!db)
 	{
 		return -1;
 	}
 
-	const char *query = "SELECT Games FROM Users WHERE Username = ?;";
+	const char *query = "UPDATE Users SET Games = Games + 1 WHERE Username = ?;";
 	sqlite3_stmt *stmt;
 
 	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
@@ -3980,22 +3991,21 @@ int user_games(sqlite3 *db)
 	sqlite3_bind_text(stmt, 1, user_name, -1, SQLITE_STATIC);
 
 	rc = sqlite3_step(stmt);
-	if (rc == SQLITE_ROW)
-	{
-		// sqlite3_finalize(stmt);
-		// sqlite3_close(db);
-		return sqlite3_column_int(stmt, 1);
-	}
-	else
+	if (rc != SQLITE_DONE)
 	{
 		print_error(sqlite3_errmsg(db));
-		// sqlite3_finalize(stmt);
-		// sqlite3_close(db);
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
 		return -1;
 	}
+
+	sqlite3_finalize(stmt);
+	sqlite3_close(db);
+
+	return 0;
 }
 
-int update_user(int finish_new_games)
+int update_user()
 {
 	if (strcmp(user_name, "Guest mode") == 0)
 	{
@@ -4029,8 +4039,7 @@ int update_user(int finish_new_games)
 						"SpeedMoving = ?, "
 						"HP = ?, "
 						"Gold = ?, "
-						"RecoveryHealth = ?, "
-						"Games = ? "
+						"RecoveryHealth = ? "
 						"WHERE Username = ?;";
 	sqlite3_stmt *stmt;
 
@@ -4063,8 +4072,7 @@ int update_user(int finish_new_games)
 	sqlite3_bind_int(stmt, 19, hp);
 	sqlite3_bind_int(stmt, 20, gold);
 	sqlite3_bind_int(stmt, 21, recovery_health);
-	sqlite3_bind_int(stmt, 22, user_games(db) + finish_new_games);
-	sqlite3_bind_text(stmt, 23, user_name, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 22, user_name, -1, SQLITE_STATIC);
 
 	rc = sqlite3_step(stmt);
 	if (rc != SQLITE_DONE)
@@ -4080,7 +4088,7 @@ int update_user(int finish_new_games)
 	return 0;
 }
 
-void make_everything_defualt()
+void make_everything_defualt(int reset_scores)
 {
 	level = 1; // 1:easy 2:medium 3:hard;
 	color = 0; // 0:red 1:green 2:blue;
@@ -4118,7 +4126,11 @@ void make_everything_defualt()
 	fullness = FULLNESS_MAX + 5;
 	current_weapon = 0;
 	speed_moving = 1;
-	hp = 100;
-	gold = 0;
+	if (reset_scores)
+	{
+		hp = 100;
+		gold = 0;
+	}
+
 	recovery_health = 1;
 }
