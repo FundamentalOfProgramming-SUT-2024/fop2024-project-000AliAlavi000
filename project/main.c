@@ -2550,7 +2550,19 @@ void start_playing()
 	keypad(stdscr, TRUE);
 	nodelay(stdscr, TRUE);
 
-	int px, py;
+	int px, py = 0;
+
+	for (int i = 0; i < WIDTH; i++)
+	{
+		for (int j = 0; j < HEIGHT; j++)
+		{
+			if (map[flooor][i][j] == PLAYER)
+			{
+				px = j;
+				py = i;
+			}
+		}
+	}
 
 	for (int i = 0; i < WIDTH; i++)
 	{
@@ -2558,13 +2570,20 @@ void start_playing()
 		{
 			if (map[flooor][j][i] == PLAYER)
 			{
+				clear();
+				printw("%d %d", i, j);
+				refresh();
+				sleep(3);
 				px = i;
 				py = j;
 			}
 		}
 	}
 
-	print_map("Hello...");
+	// print_map("Hello...");
+	char *mess = (char *)malloc(200 * sizeof(char));
+	sprintf(mess, "%d %d", px, py);
+	print_map(mess);
 	play_mp3(room_songs[0]);
 
 	int ch;
@@ -2589,12 +2608,13 @@ void start_playing()
 			{
 				message[i] = ' ';
 			}
-			int finish = 1;
+			int finish = 0;
+			int tmp = 1;
 			strcpy(message, "Save Game? (Y/N/Cancel)?");
 			move(0, 0);
 			print_map(message);
 
-			while (1)
+			while (tmp)
 			{
 				if (hp <= 0)
 				{
@@ -2605,7 +2625,9 @@ void start_playing()
 				ch = getch();
 				if (ch == 'y' || ch == 'Y')
 				{
-					/* code */
+					update_user(0);
+					finish = 1;
+					break;
 				}
 				else if (ch == 'n' || ch == 'N')
 				{
@@ -2620,7 +2642,7 @@ void start_playing()
 					}
 					move(0, 0);
 					print_map(message);
-					break;
+					tmp = 0;
 				}
 			}
 			if (finish)
@@ -3931,6 +3953,11 @@ void load_game()
 
 int user_games(sqlite3 *db)
 {
+	if (strcmp(user_name, "Guest mode") == 0)
+	{
+		return -1;
+	}
+
 	if (!db)
 	{
 		return -1;
@@ -3967,6 +3994,11 @@ int user_games(sqlite3 *db)
 
 int update_user(int finish_new_games)
 {
+	if (strcmp(user_name, "Guest mode") == 0)
+	{
+		return -4;
+	}
+
 	sqlite3 *db = connect_to_database(DB_NAME);
 	if (!db)
 	{
@@ -4078,7 +4110,6 @@ void make_everything_defualt()
 	current_weapon = 0;
 
 	Room r;
-	
 
 	rooms[FLOORS * ROOMS_PER_FLOOR];
 	fullness = FULLNESS_MAX + 5;
