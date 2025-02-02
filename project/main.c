@@ -453,7 +453,7 @@ int validate_username(const char *username)
 	rc = sqlite3_step(stmt);
 	if (rc == SQLITE_ROW)
 	{
-		exists = sqlite3_column_int(stmt, 0); 
+		exists = sqlite3_column_int(stmt, 0);
 	}
 
 	sqlite3_finalize(stmt);
@@ -1216,7 +1216,6 @@ void generate_map()
 {
 	hp = 100;
 	gold = 0;
-	
 
 	for (int i = 0; i < FLOORS; i++)
 	{
@@ -1934,7 +1933,6 @@ void print_map(char message[])
 							mvprintw(i + start_x, j + start_y, "%c", hidden_door_icon(i, j));
 						}
 					}
-					
 				}
 				else if (map[flooor][i][j] == TRAP && !stairs[flooor][i][j])
 				{
@@ -1976,7 +1974,7 @@ void print_map(char message[])
 					mvprintw(i + start_x, j + start_y, "%s", DAGGER);
 					j++;
 				}
-				else if (map[flooor][i][j] == DAGGER_IN_MAP_2 && !stairs[flooor][i][j])
+				else if (map[flooor][i][j] == DAGGER_IN_MAP_2)
 				{
 					attron(COLOR_PAIR(7));
 					mvprintw(i + start_x, j + start_y, "%s", DAGGER);
@@ -1988,7 +1986,7 @@ void print_map(char message[])
 					mvprintw(i + start_x, j + start_y, "%s", MAGIC_WAND);
 					j++;
 				}
-				else if (map[flooor][i][j] == MAGIC_WAND_IN_MAP_2 && !stairs[flooor][i][j])
+				else if (map[flooor][i][j] == MAGIC_WAND_IN_MAP_2)
 				{
 					attron(COLOR_PAIR(7));
 					mvprintw(i + start_x, j + start_y, "%s", MAGIC_WAND);
@@ -2000,7 +1998,7 @@ void print_map(char message[])
 					mvprintw(i + start_x, j + start_y, "%s", NORMAL_ARROW);
 					j++;
 				}
-				else if (map[flooor][i][j] == NORMAL_ARROW_IN_MAP_2 && !stairs[flooor][i][j])
+				else if (map[flooor][i][j] == NORMAL_ARROW_IN_MAP_2)
 				{
 					attron(COLOR_PAIR(7));
 					mvprintw(i + start_x, j + start_y, "%s", NORMAL_ARROW);
@@ -3379,7 +3377,7 @@ void manage_monsters(Cell c)
 				}
 				if (map[flooor][monster_x][monster_y] != monsters[i].name)
 				{
-					continue; 
+					continue;
 				}
 				hp -= monster_power;
 				char message[200];
@@ -3526,6 +3524,11 @@ void manage_fire(Cell cell, int do_last_fire_again)
 	}
 	else
 	{
+		if (last_pos == CORRIDOR)
+		{
+			return;
+		}
+
 		int ch = getch();
 		int dir = 1;
 		while (dir)
@@ -3564,6 +3567,8 @@ void manage_fire(Cell cell, int do_last_fire_again)
 
 		for (int i = 1; i <= weapon_range[current_weapon]; i++)
 		{
+
+			usleep(50000);
 			switch (ch)
 			{
 			case ' ':
@@ -3639,6 +3644,9 @@ void manage_fire(Cell cell, int do_last_fire_again)
 				}
 				map[new_cell.flooor][new_cell.x][new_cell.y] = weapons_short_names_2[current_weapon];
 				new_cell_2 = new_cell;
+				clear();
+				refresh();
+				print_map(" ");
 			}
 			else
 			{
