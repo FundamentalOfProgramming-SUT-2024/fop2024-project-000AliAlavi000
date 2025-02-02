@@ -25,6 +25,7 @@
 #define FLOOR '.'
 #define DOOR '+'
 #define HIDDEN_DOOR '/'
+#define SHOW_HIDDEN_DOOR '?'
 #define LOCK_DOOR '@'
 #define CORRIDOR '#'
 #define PILLAR 'O'
@@ -74,7 +75,6 @@
 #define WEAPONS_COUNT 5
 #define POTIONS_COUNT 3
 
-// format: username password email scores golds finish_games time_left
 char user_name[50];
 int level = 1; // 1:easy 2:medium 3:hard;
 int color = 0; // 0:red 1:green 2:blue;
@@ -164,6 +164,7 @@ char *potions_names[POTIONS_COUNT] = {"Health Potion", "Speed Potion", "Damage P
 int speed_moving = 1;
 int hp = 100;
 int gold = 0;
+int golds = 0;
 int recovery_health = 1;
 
 void empty_username();
@@ -1022,7 +1023,7 @@ void scores_table()
 		return;
 	}
 
-	const char *query = "SELECT Username, HP, Gold, Games, Time FROM Users;";
+	const char *query = "SELECT Username, HP, Golds, Games, Time FROM Users;";
 	sqlite3_stmt *stmt;
 
 	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
@@ -1198,6 +1199,7 @@ void generate_map()
 {
 	hp = 100;
 	gold = 0;
+	
 
 	for (int i = 0; i < FLOORS; i++)
 	{
@@ -1900,14 +1902,22 @@ void print_map(char message[])
 				}
 				else if (map[flooor][i][j] == HIDDEN_DOOR)
 				{
-					if (show_hidden_door(i, j))
+					if (stairs[flooor][i][j])
 					{
-						mvprintw(i + start_x, j + start_y, "%c", HIDDEN_DOOR);
+						mvprintw(i + start_x, j + start_y, "%c", SHOW_HIDDEN_DOOR);
 					}
 					else
 					{
-						mvprintw(i + start_x, j + start_y, "%c", hidden_door_icon(i, j));
+						if (show_hidden_door(i, j))
+						{
+							mvprintw(i + start_x, j + start_y, "%c", HIDDEN_DOOR);
+						}
+						else
+						{
+							mvprintw(i + start_x, j + start_y, "%c", hidden_door_icon(i, j));
+						}
 					}
+					
 				}
 				else if (map[flooor][i][j] == TRAP && !stairs[flooor][i][j])
 				{
@@ -2111,8 +2121,8 @@ void move_player(int *px, int *py, int direction, char *message)
 		}
 		else if (direction == '9' && flooor != FLOORS - 1)
 		{
-			// if (evey_rooms_in_this_floor_visited(flooor))
-			if (1)
+			if (evey_rooms_in_this_floor_visited(flooor))
+			// if (1)
 			{
 				map[flooor][*py][*px] = last_pos;
 				flooor++;
@@ -3818,6 +3828,7 @@ int create_users_table(sqlite3 *db)
 						"SpeedMoving INTEGER DEFAULT 1, "
 						"HP INTEGER DEFAULT 100, "
 						"Gold INTEGER DEFAULT 0, "
+						"Golds INTEGER DEFAULT 0, "
 						"RecoveryHealth INTEGER DEFAULT 1, "
 						"Games INTEGER DEFAULT 0, "
 						"Time TEXT);";
@@ -3847,8 +3858,8 @@ int add_user(sqlite3 *db, const char *username, const char *password, const char
 	sqlite3_stmt *stmt;
 	const char *query = "INSERT INTO Users (Username, Password, Email, Level, Color, Song, LastPos, Floor, EverythingVisible, "
 						"Map, Rooms, Monsters, Stairs, Foods, FoodsTime, Fullness, Weapons, CurrentWeapon, Potions, PotionsLeft, "
-						"SpeedMoving, HP, Gold, RecoveryHealth, Games, Time) "
-						"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+						"SpeedMoving, HP, Gold, Golds, RecoveryHealth, Games, Time) "
+						"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
 	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
 	if (rc != SQLITE_OK)
@@ -3880,9 +3891,10 @@ int add_user(sqlite3 *db, const char *username, const char *password, const char
 	sqlite3_bind_int(stmt, 21, speed_moving);
 	sqlite3_bind_int(stmt, 22, hp);
 	sqlite3_bind_int(stmt, 23, gold);
-	sqlite3_bind_int(stmt, 24, recovery_health);
-	sqlite3_bind_int(stmt, 25, 0);
-	sqlite3_bind_text(stmt, 26, time_str, -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 24, golds);
+	sqlite3_bind_int(stmt, 25, recovery_health);
+	sqlite3_bind_int(stmt, 26, 0);
+	sqlite3_bind_text(stmt, 27, time_str, -1, SQLITE_STATIC);
 
 	rc = sqlite3_step(stmt);
 	if (rc != SQLITE_DONE)
@@ -3926,7 +3938,7 @@ void load_game()
 
 	const char *query = "SELECT Level, Color, Song, LastPos, Floor, EverythingVisible, "
 						"Map, Rooms, Monsters, Stairs, Foods, FoodsTime, Fullness, "
-						"Weapons, CurrentWeapon, Potions, PotionsLeft, SpeedMoving, HP, Gold, RecoveryHealth "
+						"Weapons, CurrentWeapon, Potions, PotionsLeft, SpeedMoving, HP, Gold, Golds, RecoveryHealth "
 						"FROM Users WHERE Username = ?;";
 	sqlite3_stmt *stmt;
 
@@ -3964,7 +3976,8 @@ void load_game()
 		speed_moving = sqlite3_column_int(stmt, 17);
 		hp = sqlite3_column_int(stmt, 18);
 		gold = sqlite3_column_int(stmt, 19);
-		recovery_health = sqlite3_column_int(stmt, 20);
+		golds = sqlite3_column_int(stmt, 20);
+		recovery_health = sqlite3_column_int(stmt, 21);
 
 		if (map_blob)
 			memcpy(map, map_blob, sizeof(map));
@@ -4007,7 +4020,7 @@ int add_user_games()
 		return -1;
 	}
 
-	const char *query = "UPDATE Users SET Games = Games + 1 WHERE Username = ?;";
+	const char *query = "UPDATE Users SET Games = Games + 1, Golds = Golds + ? WHERE Username = ?;";
 	sqlite3_stmt *stmt;
 
 	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
@@ -4018,7 +4031,8 @@ int add_user_games()
 		return -1;
 	}
 
-	sqlite3_bind_text(stmt, 1, user_name, -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 1, gold);
+	sqlite3_bind_text(stmt, 2, user_name, -1, SQLITE_STATIC);
 
 	rc = sqlite3_step(stmt);
 	if (rc != SQLITE_DONE)
