@@ -166,6 +166,8 @@ int hp = 100;
 int gold = 0;
 int golds = 0;
 int recovery_health = 1;
+int games = 0;
+char timee[20];
 
 void empty_username();
 void add_new_user(const char *message);
@@ -226,6 +228,7 @@ void load_game();
 int update_user();
 int add_user_games();
 void make_everything_defualt(int reset_scores);
+void profile();
 
 int main()
 {
@@ -724,13 +727,26 @@ void pre_game_menu()
 	cbreak();
 	curs_set(0);
 
-	char *choices[] = {
-		"1. Start New Game",
-		"2. Continue Previous Game",
-		"3. View Scoreboard",
-		"4. Settings",
-		"5. Exit"};
-	int n_choices = sizeof(choices) / sizeof(choices[0]);
+	char **choices = malloc(sizeof(char *) * 5);
+	choices[0] = strdup("1. Start New Game");
+	choices[1] = strdup("2. Continue Previous Game");
+	choices[2] = strdup("3. View Scoreboard");
+	choices[3] = strdup("4. Settings");
+	choices[4] = strdup("5. Exit");
+
+	int n_choices = 5;
+
+	if (strcmp(user_name, "Guest mode"))
+	{
+		choices = realloc(choices, sizeof(char *) * (n_choices + 1));
+		if (!choices)
+		{
+			return;
+		}
+
+		choices[n_choices] = strdup("6. Profile");
+		n_choices++;
+	}
 
 	int highlight = 1;
 	int choice = 0;
@@ -808,6 +824,10 @@ void pre_game_menu()
 		else if (choice == 5)
 		{
 			break; // Exit
+		}
+		else if (choice == 6)
+		{
+			profile();
 		}
 
 		choice = 0;
@@ -3963,7 +3983,7 @@ void load_game()
 
 	const char *query = "SELECT Level, Color, Song, LastPos, Floor, EverythingVisible, "
 						"Map, Rooms, Monsters, Stairs, Foods, FoodsTime, Fullness, "
-						"Weapons, CurrentWeapon, Potions, PotionsLeft, SpeedMoving, HP, Gold, Golds, RecoveryHealth "
+						"Weapons, CurrentWeapon, Potions, PotionsLeft, SpeedMoving, HP, Gold, Golds, RecoveryHealth, Games, Time "
 						"FROM Users WHERE Username = ?;";
 	sqlite3_stmt *stmt;
 
@@ -4003,9 +4023,11 @@ void load_game()
 		gold = sqlite3_column_int(stmt, 19);
 		golds = sqlite3_column_int(stmt, 20);
 		recovery_health = sqlite3_column_int(stmt, 21);
+		games = sqlite3_column_int(stmt, 22);
+		strcpy(timee, (char *)sqlite3_column_text(stmt, 23));
 
 		if (map_blob)
-			memcpy(map, map_blob, sizeof(map));
+				memcpy(map, map_blob, sizeof(map));
 		if (rooms_blob)
 			memcpy(rooms, rooms_blob, sizeof(rooms));
 		if (monsters_blob)
@@ -4202,4 +4224,93 @@ void make_everything_defualt(int reset_scores)
 	}
 
 	recovery_health = 1;
+}
+
+void profile()
+{
+	if (!user_name || strlen(user_name) == 0)
+	{
+		return;
+	}
+
+	clear();
+	initscr();
+	start_color(); 
+	noecho();
+	curs_set(FALSE);
+	keypad(stdscr, TRUE);
+
+	init_pair(1, COLOR_MAGENTA, COLOR_BLACK); // عنوان‌ها صورتی
+	init_pair(2, COLOR_GREEN, COLOR_BLACK);	  // مقادیر سبز
+
+	int row, col;
+	getmaxyx(stdscr, row, col);
+
+	int width = 40, height = 12;
+	int start_x = (col - width) / 2;
+	int start_y = (row - height) / 2;
+
+	WINDOW *win = newwin(height, width, start_y, start_x);
+	box(win, 0, 0);
+
+	mvwprintw(win, 1, (width - 14) / 2, "USER PROFILE");
+
+	wattron(win, COLOR_PAIR(1)); // رنگ صورتی
+	mvwprintw(win, 3, 2, "Username:");
+	wattroff(win, COLOR_PAIR(1));
+
+	wattron(win, COLOR_PAIR(2)); // رنگ سبز
+	mvwprintw(win, 3, 15, "%s", user_name);
+	wattroff(win, COLOR_PAIR(2));
+
+	wattron(win, COLOR_PAIR(1));
+	mvwprintw(win, 4, 2, "Golds:");
+	wattroff(win, COLOR_PAIR(1));
+
+	wattron(win, COLOR_PAIR(2));
+	mvwprintw(win, 4, 15, "%d", golds);
+	wattroff(win, COLOR_PAIR(2));
+
+	wattron(win, COLOR_PAIR(1));
+	mvwprintw(win, 5, 2, "Games:");
+	wattroff(win, COLOR_PAIR(1));
+
+	wattron(win, COLOR_PAIR(2));
+	mvwprintw(win, 5, 15, "%d", games);
+	wattroff(win, COLOR_PAIR(2));
+
+	wattron(win, COLOR_PAIR(1));
+	mvwprintw(win, 6, 2, "Time:");
+	wattroff(win, COLOR_PAIR(1));
+
+	wattron(win, COLOR_PAIR(2));
+	mvwprintw(win, 6, 15, "%s", timee);
+	wattroff(win, COLOR_PAIR(2));
+
+	wattron(win, COLOR_PAIR(1));
+	mvwprintw(win, 7, 2, "HP:");
+	wattroff(win, COLOR_PAIR(1));
+
+	wattron(win, COLOR_PAIR(2));
+	mvwprintw(win, 7, 15, "%d", hp);
+	wattroff(win, COLOR_PAIR(2));
+
+	wattron(win, COLOR_PAIR(1));
+	mvwprintw(win, 8, 2, "Score:");
+	wattroff(win, COLOR_PAIR(1));
+
+	wattron(win, COLOR_PAIR(2));
+	mvwprintw(win, 8, 15, "%d", golds + (hp / 20) + games);
+	wattroff(win, COLOR_PAIR(2));
+
+	mvwprintw(win, 10, (width - 20) / 2, "Press any key to exit");
+
+	refresh();
+
+	wrefresh(win);
+	getch();
+	delwin(win);
+	clear();
+	refresh();
+	endwin();
 }
