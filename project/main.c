@@ -1036,8 +1036,8 @@ void scores_table()
 		strcpy(users[count].username, (char *)sqlite3_column_text(stmt, 0));
 		users[count].golds = sqlite3_column_int(stmt, 2);
 		strcpy(users[count].time_left, (char *)sqlite3_column_text(stmt, 4));
-		users[count].scores = (users[count].golds) + (sqlite3_column_int(stmt, 1) / 10);
 		users[count].finish_games = sqlite3_column_int(stmt, 3);
+		users[count].scores = (users[count].golds) + (sqlite3_column_int(stmt, 1) / 20) + users[count].finish_games;
 		count++;
 	}
 
@@ -1053,7 +1053,7 @@ void scores_table()
 			}
 		}
 	}
-	
+
 	for (int i = 0; i < count; i++)
 	{
 		if (strcmp(users[i].username, user_name) == 0)
@@ -1061,7 +1061,6 @@ void scores_table()
 			current_user_number = i;
 		}
 	}
-	
 
 	int current_page = 0;
 	int total_pages = (count + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE;
@@ -3158,7 +3157,7 @@ void finish_game()
 	{
 		attron(COLOR_PAIR(2));
 		center_text(3, "Congratulations! You won!");
-		score = gold +(hp / 10);
+		score = gold + (hp / 20);
 		center_text(5, "Your Score:");
 		mvprintw(6, (COLS / 2) - 2, "%d", score);
 		attroff(COLOR_PAIR(2));
@@ -3970,7 +3969,7 @@ int add_user_games()
 	{
 		return -1;
 	}
-	
+
 	sqlite3 *db = connect_to_database(DB_NAME);
 	if (!db)
 	{
