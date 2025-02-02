@@ -366,7 +366,7 @@ void add_new_user(const char *message)
 	getstr(create);
 	attroff(COLOR_PAIR(2));
 
-	if (create[0] == 'Y')
+	if (create[0] == 'Y' || create[0] == 'y')
 	{
 		attron(COLOR_PAIR(1));
 		printw("Password:");
@@ -425,24 +425,41 @@ int validate_username(const char *username)
 		return 0;
 	}
 
-	FILE *file = fopen(FILENAME, "r");
-	if (!file)
-		return 1;
-
-	char line[200];
-	while (fgets(line, sizeof(line), file))
+	if (!username || strlen(username) == 0)
 	{
-		char stored_username[50];
-		sscanf(line, "%49s", stored_username);
-		if (strcmp(username, stored_username) == 0)
-		{
-			fclose(file);
-			return 0;
-		}
+		return 0;
 	}
 
-	fclose(file);
-	return 1;
+	sqlite3 *db = connect_to_database(DB_NAME);
+	if (!db)
+	{
+		return 0;
+	}
+
+	const char *query = "SELECT COUNT(*) FROM Users WHERE Username = ?;";
+	sqlite3_stmt *stmt;
+
+	int rc = sqlite3_prepare_v2(db, query, -1, &stmt, 0);
+	if (rc != SQLITE_OK)
+	{
+		print_error(sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return 0;
+	}
+
+	sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+
+	int exists = 0;
+	rc = sqlite3_step(stmt);
+	if (rc == SQLITE_ROW)
+	{
+		exists = sqlite3_column_int(stmt, 0); 
+	}
+
+	sqlite3_finalize(stmt);
+	sqlite3_close(db);
+
+	return exists > 0 ? 0 : 1;
 }
 
 int validate_password(const char *password)
