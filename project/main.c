@@ -3120,6 +3120,9 @@ void draw_sad_animation()
 
 void finish_game()
 {
+	make_everything_defualt();
+	update_user(1);
+
 	initscr();
 	cbreak();
 	noecho();
