@@ -1229,6 +1229,7 @@ void generate_map()
 	r.width = 0;
 	r.x = 0;
 	r.y = 0;
+	r.kind = 0;
 	for (int i = 0; i < FLOORS * ROOMS_PER_FLOOR; i++)
 	{
 		rooms[i] = r;
@@ -1687,22 +1688,30 @@ void connect_rooms(int floor)
 			int door2_x = rand() % (r2.width - 2) + r2.x + 1;
 			int door2_y = r2.y;
 
-			if (r1.dead_end)
+			if (r1.kind == 2 || r2.kind == 2)
 			{
 				map[floor][door1_x][door1_y] = HIDDEN_DOOR;
-			}
-			else
-			{
-				map[floor][door1_x][door1_y] = DOOR;
-			}
-
-			if (r2.dead_end)
-			{
 				map[floor][door2_x][door2_y] = HIDDEN_DOOR;
 			}
 			else
 			{
-				map[floor][door2_x][door2_y] = DOOR;
+				if (r1.dead_end)
+				{
+					map[floor][door1_x][door1_y] = HIDDEN_DOOR;
+				}
+				else
+				{
+					map[floor][door1_x][door1_y] = DOOR;
+				}
+
+				if (r2.dead_end)
+				{
+					map[floor][door2_x][door2_y] = HIDDEN_DOOR;
+				}
+				else
+				{
+					map[floor][door2_x][door2_y] = DOOR;
+				}
 			}
 
 			draw_corridor(floor, door1_x, door1_y + 1, door2_x, door2_y - 1);
@@ -1724,22 +1733,30 @@ void connect_rooms(int floor)
 			int door2_y = rand() % (r2.height - 2) + r2.y + 1;
 			int door2_x = r2.x;
 
-			if (r1.dead_end)
+			if (r1.kind == 2 || r2.kind == 2)
 			{
 				map[floor][door1_x][door1_y] = HIDDEN_DOOR;
-			}
-			else
-			{
-				map[floor][door1_x][door1_y] = DOOR;
-			}
-
-			if (r2.dead_end)
-			{
 				map[floor][door2_x][door2_y] = HIDDEN_DOOR;
 			}
 			else
 			{
-				map[floor][door2_x][door2_y] = DOOR;
+				if (r1.dead_end)
+				{
+					map[floor][door1_x][door1_y] = HIDDEN_DOOR;
+				}
+				else
+				{
+					map[floor][door1_x][door1_y] = DOOR;
+				}
+
+				if (r2.dead_end)
+				{
+					map[floor][door2_x][door2_y] = HIDDEN_DOOR;
+				}
+				else
+				{
+					map[floor][door2_x][door2_y] = DOOR;
+				}
 			}
 
 			draw_corridor(floor, door1_x + 1, door1_y, door2_x - 1, door2_y);
@@ -2195,6 +2212,11 @@ void move_player(int *px, int *py, int direction, char *message)
 			c.x = new_y;
 			c.y = new_x;
 
+			if (rooms[get_room(c)].kind == 2)
+			{
+				hp--;
+			}
+
 			map[flooor][*py][*px] = last_pos;
 			*px = new_x;
 			*py = new_y;
@@ -2612,6 +2634,7 @@ void start_playing()
 		}
 		else
 		{
+			clear();
 			for (int i = 0; i < 150; i++)
 			{
 				message[i] = ' ';
