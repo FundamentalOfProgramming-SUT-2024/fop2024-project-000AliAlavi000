@@ -3350,6 +3350,10 @@ void manage_monsters(Cell c)
 				default:
 					break;
 				}
+				if (map[flooor][monster_x][monster_y] != monsters[i].name)
+				{
+					continue; 
+				}
 				hp -= monster_power;
 				char message[200];
 				sprintf(message, "You lost %d points in the battle with the %c", monster_power, monsters[i].name);
@@ -3394,6 +3398,10 @@ void manage_monsters(Cell c)
 			if (abs(monster_x - c.x) <= 1 && abs(monster_y - c.y) <= 1)
 			{
 				enum MonsterPower monster_power = S;
+				if (map[flooor][monster_x][monster_y] != monsters[i].name)
+				{
+					continue;
+				}
 				hp -= monster_power;
 				char message[200];
 				sprintf(message, "You lost %d points in the battle with the %c", monster_power, monsters[i].name);
